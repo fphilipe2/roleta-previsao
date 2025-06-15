@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 
-# Função para verificar resultado 1 ou X com base nas regras
+# Regras atualizadas conforme o histórico fornecido
 regras = {
     1: [3, 8, 11, 12, 13, 28, 29, 30, 35, 36],
     36: [3, 8, 11, 12, 13, 28, 29, 30, 35, 36],
@@ -47,53 +47,65 @@ def prever_resultado(num_anterior, num_atual):
 
 st.title("Análise e Previsão - Roleta")
 
-arquivo = st.file_uploader("Carregar arquivo CSV de resultados", type="csv")
+if "dados" not in st.session_state:
+    st.session_state.dados = []
 
-if arquivo:
-    df = pd.read_csv(arquivo, names=["Anterior", "Atual", "Resultado"])
-    df = df.dropna()
-    df = df.astype({"Anterior": int, "Atual": int, "Resultado": str})
+novo_numero = st.number_input("Digite o número que acabou de sair na roleta (0-36):", min_value=0, max_value=36, step=1)
+if st.button("Adicionar Número"):
+    st.session_state.dados.append(novo_numero)
 
-    df['Previsao'] = df.apply(lambda row: prever_resultado(row['Anterior'], row['Atual']), axis=1)
-    df['Palpite'] = df.apply(lambda row: 'Green' if row['Previsao'] == row['Resultado'] else 'Red', axis=1)
+# Mostrar dados atuais
+st.subheader("Histórico de Números")
+df = pd.DataFrame(st.session_state.dados, columns=["numero"])
+st.dataframe(df)
 
-    # Estatísticas
-    total = len(df)
-    greens = df['Palpite'].value_counts().get('Green', 0)
-    reds = df['Palpite'].value_counts().get('Red', 0)
-    percentual = round((greens / total) * 100, 2)
+# Gerar palpite com base nos últimos 14 pares
+def gerar_palpite(df):
+    if len(df) < 15:
+        return None
+    erros = 0
+    for i in range(-14, -1):
+        ant = df.iloc[i - 1]['numero']
+        atual = df.iloc[i]['numero']
+        prev = prever_resultado(ant, atual)
+        real = prever_resultado(ant, atual)
+        if prev != real:
+            erros += 1
+    if erros <= 2:
+        return prever_resultado(df.iloc[-2]['numero'], df.iloc[-1]['numero'])
+    return None
 
-    st.subheader("Estatísticas")
-    st.write(f"Total de palpites: {total}")
-    st.write(f"Greens: {greens}")
-    st.write(f"Reds: {reds}")
-    st.write(f"Assertividade: {percentual}%")
+palpite = gerar_palpite(df)
+if palpite:
+    st.success(f"Palpite para o próximo número: {palpite}")
+else:
+    st.warning("Não há dados suficientes ou muitos erros nas últimas previsões.")
 
-    # Simulação de banca com estratégia 26-78-312
-    st.subheader("Simulação de Banca")
-    banca = 1000
-    historico_banca = []
-    tentativa = 0
-    valores = [26, 78, 312]
+# Simulação de banca com base nas previsões
+st.subheader("Simulação de Banca")
+banca = 1000
+historico_banca = []
+tentativa = 0
+valores = [26, 78, 312]
 
-    for resultado in df['Palpite']:
-        if tentativa >= 3:
-            tentativa = 0  # reset após 3 reds
-        aposta = valores[tentativa]
-        banca -= aposta
-        if resultado == 'Green':
-            ganho = 36 * (tentativa + 1)
-            lucro = ganho - sum(valores[:tentativa+1])
-            banca += ganho
-            tentativa = 0
-        else:
-            tentativa += 1
-        historico_banca.append(banca)
+for i in range(1, len(df)):
+    anterior = df.iloc[i - 1]['numero']
+    atual = df.iloc[i]['numero']
+    previsao = prever_resultado(anterior, atual)
+    resultado = prever_resultado(anterior, atual)
+    if tentativa >= 3:
+        tentativa = 0
+    aposta = valores[tentativa]
+    banca -= aposta
+    if previsao == resultado:
+        ganho = 36 * (tentativa + 1)
+        lucro = ganho - sum(valores[:tentativa+1])
+        banca += ganho
+        tentativa = 0
+    else:
+        tentativa += 1
+    historico_banca.append(banca)
 
-    df['Banca'] = historico_banca
-
-    st.line_chart(df['Banca'])
-    st.dataframe(df[['Anterior', 'Atual', 'Resultado', 'Previsao', 'Palpite', 'Banca']])
-
-    csv_export = df.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Baixar CSV com Resultados", data=csv_export, file_name="analise_roleta.csv", mime='text/csv')
+# Mostrar gráfico e tabela
+if historico_banca:
+    st.line_chart(historico_banca)
