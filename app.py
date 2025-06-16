@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import os
 
-# Regras atualizadas conforme o histórico fornecido
 ARQUIVO_REGRAS = "regras.csv"
 ARQUIVO_RESULTADOS = "dados.csv"
 ARQUIVO_ESTRATEGIAS = "historico_estrategias.csv"
@@ -46,74 +45,78 @@ regras = {
     34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
 }
 
-# Se o arquivo de regras não existir, cria o CSV inicial
 if not os.path.exists(ARQUIVO_REGRAS):
     regras_df = pd.DataFrame([{"anterior": k, "proibidos": ",".join(map(str, v))} for k, v in regras.items()])
     regras_df.to_csv(ARQUIVO_REGRAS, index=False)
 
 st.title("Roleta - Previsão e Simulação de Banca")
 
-# Estratégia Reflexiva (baseada em 15 últimas sequências)
+# Upload de arquivo CSV
+st.subheader("Upload de Resultados Anteriores")
+uploaded_file = st.file_uploader("Envie um arquivo CSV com os resultados (números entre 0 e 36)", type="csv")
+if uploaded_file:
+    df_upload = pd.read_csv(uploaded_file)
+    if 'numero' in df_upload.columns:
+        historico_antigo = df_upload['numero'].astype(int).tolist()
+        resultado_seq = []
+        for i in range(1, len(historico_antigo)):
+            ultimo = historico_antigo[i-1]
+            atual = historico_antigo[i]
+            resultado_seq.append("1" if atual not in regras.get(ultimo, []) else "X")
+        df_historico = pd.DataFrame({"Numero": historico_antigo[1:], "Resultado": resultado_seq})
+        df_historico.to_csv(ARQUIVO_ESTRATEGIAS, index=False)
+        st.success("Arquivo carregado e processado com sucesso.")
+
+# Entrada manual de resultado
+st.subheader("Inserir novo número da roleta")
+novo_resultado = st.number_input("Digite o número que saiu (0 a 36):", min_value=0, max_value=36, step=1)
+if st.button("Registrar número"):
+    if os.path.exists(ARQUIVO_ESTRATEGIAS):
+        df = pd.read_csv(ARQUIVO_ESTRATEGIAS)
+        if not df.empty:
+            ultimo_num = int(df['Numero'].iloc[-1])
+            resultado = "1" if novo_resultado not in regras.get(ultimo_num, []) else "X"
+            novo = pd.DataFrame({"Numero": [novo_resultado], "Resultado": [resultado]})
+            df = pd.concat([df, novo], ignore_index=True)
+            df.to_csv(ARQUIVO_ESTRATEGIAS, index=False)
+            st.success(f"Número {novo_resultado} registrado com resultado {resultado}.")
+        else:
+            st.warning("Base vazia. Faça upload inicial primeiro.")
+    else:
+        st.warning("Arquivo histórico não encontrado. Faça upload inicial.")
+
+# Estratégia Reflexiva
+st.subheader("Previsão - Estratégia Reflexiva")
 def estrategia_reflexiva(historico):
     if len(historico) < 15:
         return "Aguardando mais resultados para análise."
-
     ultimos = historico[-15:]
-
     padrao_atual = "".join(ultimos)
     contagem_1 = 0
     contagem_total = 0
-
     for i in range(len(historico) - 15):
         trecho = historico[i:i+15]
-        if trecho == ultimos:
-            if i+15 < len(historico):
-                proximo = historico[i+15]
-                contagem_total += 1
-                if proximo == "1":
-                    contagem_1 += 1
-
+        if trecho == ultimos and i+15 < len(historico):
+            proximo = historico[i+15]
+            contagem_total += 1
+            if proximo == "1":
+                contagem_1 += 1
     if contagem_total == 0:
         return "Sem correspondência suficiente para prever."
-
     prob = contagem_1 / contagem_total
-
     palpite = "1" if prob >= 0.5 else "X"
     texto = f"Palpite Estratégia Reflexiva: {palpite} (acerto {contagem_1}/{contagem_total})"
-
     if palpite == "1":
         ult_numero = int(historico[-1])
         proibidos = regras.get(ult_numero, [])
-        return f"{texto} → V{proibidos[0]}V{proibidos[1]}"
-    else:
-        return texto
+        if len(proibidos) >= 2:
+            return f"{texto} → V{proibidos[0]}V{proibidos[1]}"
+    return texto
 
-# Exibe palpite baseado no histórico de estratégias
 if os.path.exists(ARQUIVO_ESTRATEGIAS):
     df_hist = pd.read_csv(ARQUIVO_ESTRATEGIAS)
     if 'Resultado' in df_hist.columns:
         historico_resultado = df_hist['Resultado'].astype(str).tolist()
-        st.subheader("Previsão - Estratégia Reflexiva")
         st.info(estrategia_reflexiva(historico_resultado))
 else:
     st.warning("Histórico insuficiente para análise.")
-
-# Interface para inserir resultado manualmente
-st.subheader("Inserir novo resultado da roleta")
-col1, col2 = st.columns(2)
-
-with col1:
-    novo_numero = st.number_input("Último número da roleta", min_value=0, max_value=36, step=1)
-
-with col2:
-    novo_resultado = st.selectbox("Resultado da jogada (1 para green, X para red)", ["1", "X"])
-
-if st.button("Salvar resultado"):
-    novo_dado = pd.DataFrame([[novo_numero, novo_resultado]], columns=["Numero", "Resultado"])
-    if os.path.exists(ARQUIVO_ESTRATEGIAS):
-        df_existente = pd.read_csv(ARQUIVO_ESTRATEGIAS)
-        df_final = pd.concat([df_existente, novo_dado], ignore_index=True)
-    else:
-        df_final = novo_dado
-    df_final.to_csv(ARQUIVO_ESTRATEGIAS, index=False)
-    st.success("Resultado salvo com sucesso! Atualize a página para nova previsão.")
