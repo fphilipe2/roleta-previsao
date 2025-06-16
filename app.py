@@ -13,43 +13,14 @@ if os.path.exists(ARQUIVO_REGRAS):
     regras = {int(row['anterior']): list(map(int, str(row['proibidos']).split(','))) for _, row in regras_df.iterrows()}
 else:
     regras = {
-        0: [5, 15, 25],
-        1: [3, 9, 27],
-        2: [4, 12, 36],
-        3: [1, 13, 35],
-        4: [2, 14, 34],
-        5: [0, 10, 30],
-        6: [18, 24, 33],
-        7: [19, 25, 28],
-        8: [20, 26, 29],
-        9: [1, 11, 31],
-        10: [2, 22, 32],
-        11: [3, 13, 23],
-        12: [4, 14, 24],
-        13: [5, 15, 25],
-        14: [6, 16, 26],
-        15: [7, 17, 27],
-        16: [8, 18, 28],
-        17: [9, 19, 29],
-        18: [10, 20, 30],
-        19: [11, 21, 31],
-        20: [12, 22, 32],
-        21: [13, 23, 33],
-        22: [14, 24, 34],
-        23: [15, 25, 35],
-        24: [16, 26, 36],
-        25: [0, 17, 27],
-        26: [1, 18, 28],
-        27: [2, 19, 29],
-        28: [3, 20, 30],
-        29: [4, 21, 31],
-        30: [5, 22, 32],
-        31: [6, 23, 33],
-        32: [7, 24, 34],
-        33: [8, 25, 35],
-        34: [9, 26, 36],
-        35: [10, 27, 0],
-        36: [11, 28, 1],
+        0: [5, 15, 25], 1: [3, 9, 27], 2: [4, 12, 36], 3: [1, 13, 35], 4: [2, 14, 34],
+        5: [0, 10, 30], 6: [18, 24, 33], 7: [19, 25, 28], 8: [20, 26, 29], 9: [1, 11, 31],
+        10: [2, 22, 32], 11: [3, 13, 23], 12: [4, 14, 24], 13: [5, 15, 25], 14: [6, 16, 26],
+        15: [7, 17, 27], 16: [8, 18, 28], 17: [9, 19, 29], 18: [10, 20, 30], 19: [11, 21, 31],
+        20: [12, 22, 32], 21: [13, 23, 33], 22: [14, 24, 34], 23: [15, 25, 35], 24: [16, 26, 36],
+        25: [0, 17, 27], 26: [1, 18, 28], 27: [2, 19, 29], 28: [3, 20, 30], 29: [4, 21, 31],
+        30: [5, 22, 32], 31: [6, 23, 33], 32: [7, 24, 34], 33: [8, 25, 35], 34: [9, 26, 36],
+        35: [10, 27, 0], 36: [11, 28, 1],
     }
     regras_df = pd.DataFrame([{"anterior": k, "proibidos": ",".join(map(str, v))} for k, v in regras.items()])
 
@@ -82,7 +53,7 @@ if uploaded_file:
 
 if os.path.exists(ARQUIVO_RESULTADOS):
     with open(ARQUIVO_RESULTADOS, "rb") as f:
-        st.download_button("📥 Baixar resultados atuais", f, file_name="resultados_atualizados.csv")
+        st.download_button("📅 Baixar resultados atuais", f, file_name="resultados_atualizados.csv")
 
 # Entrada manual
 st.subheader("🎯 Inserir Número Manualmente")
@@ -105,26 +76,23 @@ if st.button("Adicionar Número"):
         resultado = 'GREEN' if palpite == '1' else 'RED'
         st.info(f"Resultado do número inserido: {resultado}")
 
-        # Estratégia 2 – Repetição de Dúzias
         def get_dz(n): return 0 if n == 0 else (n - 1) // 12 + 1
+
         if len(df) >= 11:
             ult_dzs = [get_dz(n) for n in df['numero'].iloc[-11:]]
             if all(x == ult_dzs[0] for x in ult_dzs):
                 st.warning("📌 Estratégia 2: 11 ou mais repetições da mesma dúzia detectadas!")
 
-        # Estratégia 3 – Zig-Zag (Ímpar/Par e Vermelho/Preto - simplificado para Ímpar/Par)
         if len(df) >= 14:
             zigzag = [n % 2 for n in df['numero'].iloc[-14:]]
             alternando = all(zigzag[i] != zigzag[i+1] for i in range(len(zigzag)-1))
             if alternando:
                 st.info("📌 Estratégia 3: Zig-Zag de ímpar/par detectado!")
 
-        # Estratégia 4 – Gatilho Personalizado
         gatilho_personalizado = [7, 19, 36]
         if all(x in df['numero'].tolist()[-10:] for x in gatilho_personalizado):
             st.info("📌 Estratégia 4: Gatilho 7-19-36 detectado! Apostar em 3")
 
-                # Estratégia 5 – Alterações de Dúzias (baseado nas últimas 5 jogadas)
         def duzia(numero):
             if numero == 0:
                 return 'D0'
@@ -134,6 +102,13 @@ if st.button("Adicionar Número"):
                 return 'D2'
             else:
                 return 'D3'
+
+        def coluna(numero):
+            if numero == 0:
+                return 'C0'
+            elif numero in [1,4,7,10,13,16,19,22,25,28,31,34]: return 'C1'
+            elif numero in [2,5,8,11,14,17,20,23,26,29,32,35]: return 'C2'
+            else: return 'C3'
 
         def contar_alteracoes(grupo):
             alteracoes = 0
@@ -145,9 +120,11 @@ if st.button("Adicionar Número"):
                     alteracoes += 1
             return alteracoes
 
+        alerta_dz = False
+        alerta_col = False
+
         if len(df) >= 6:
-            ultimos = df['numero'].iloc[-6:].tolist()
-            dz_seq = [duzia(n) for n in ultimos]
+            dz_seq = [duzia(n) for n in df['numero'].iloc[-6:].tolist()]
             alt_dz = contar_alteracoes(dz_seq)
             alerta_dz = alt_dz >= 4
             if alerta_dz:
@@ -156,20 +133,7 @@ if st.button("Adicionar Número"):
                 palpite_dz.add('D0')
                 st.warning(f"📌 Estratégia 5: 4x alterações de dúzias detectadas. Jogar: {', '.join(sorted(palpite_dz))}")
 
-        # Estratégia 6 – Alterações de Colunas
-        def coluna(numero):
-            if numero == 0:
-                return 'C0'
-            elif numero in [1,4,7,10,13,16,19,22,25,28,31,34]:
-                return 'C1'
-            elif numero in [2,5,8,11,14,17,20,23,26,29,32,35]:
-                return 'C2'
-            elif numero in [3,6,9,12,15,18,21,24,27,30,33,36]:
-                return 'C3'
-
-        if len(df) >= 6:
-            ultimos = df['numero'].iloc[-6:].tolist()
-            col_seq = [coluna(n) for n in ultimos]
+            col_seq = [coluna(n) for n in df['numero'].iloc[-6:].tolist()]
             alt_col = contar_alteracoes(col_seq)
             alerta_col = alt_col >= 4
             if alerta_col:
@@ -178,8 +142,7 @@ if st.button("Adicionar Número"):
                 palpite_col.add('C0')
                 st.warning(f"📌 Estratégia 6: 4x alterações de colunas detectadas. Jogar: {', '.join(sorted(palpite_col))}")
 
-        # Histórico dos palpites por estratégia
-                historico = pd.DataFrame({
+        historico = pd.DataFrame({
             'numero': [numero_manual],
             'estrategia1': [resultado],
             'estrategia2': ['ALERTA' if all(x == ult_dzs[0] for x in ult_dzs) else ''],
@@ -188,6 +151,7 @@ if st.button("Adicionar Número"):
             'estrategia5': ['ALERTA' if alerta_dz else ''],
             'estrategia6': ['ALERTA' if alerta_col else '']
         })
+
         if os.path.exists(ARQUIVO_ESTRATEGIAS):
             hist_ant = pd.read_csv(ARQUIVO_ESTRATEGIAS)
             historico = pd.concat([hist_ant, historico], ignore_index=True)
