@@ -97,3 +97,23 @@ if os.path.exists(ARQUIVO_ESTRATEGIAS):
         st.info(estrategia_reflexiva(historico_resultado))
 else:
     st.warning("Histórico insuficiente para análise.")
+
+# Interface para inserir resultado manualmente
+st.subheader("Inserir novo resultado da roleta")
+col1, col2 = st.columns(2)
+
+with col1:
+    novo_numero = st.number_input("Último número da roleta", min_value=0, max_value=36, step=1)
+
+with col2:
+    novo_resultado = st.selectbox("Resultado da jogada (1 para green, X para red)", ["1", "X"])
+
+if st.button("Salvar resultado"):
+    novo_dado = pd.DataFrame([[novo_numero, novo_resultado]], columns=["Numero", "Resultado"])
+    if os.path.exists(ARQUIVO_ESTRATEGIAS):
+        df_existente = pd.read_csv(ARQUIVO_ESTRATEGIAS)
+        df_final = pd.concat([df_existente, novo_dado], ignore_index=True)
+    else:
+        df_final = novo_dado
+    df_final.to_csv(ARQUIVO_ESTRATEGIAS, index=False)
+    st.success("Resultado salvo com sucesso! Atualize a página para nova previsão.")
