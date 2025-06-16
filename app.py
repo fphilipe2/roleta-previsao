@@ -124,21 +124,69 @@ if st.button("Adicionar Número"):
         if all(x in df['numero'].tolist()[-10:] for x in gatilho_personalizado):
             st.info("📌 Estratégia 4: Gatilho 7-19-36 detectado! Apostar em 3")
 
-        # Estratégia 5 – Alterações entre Dúzias
-        if len(df) >= 5:
-            seq_dz = [get_dz(n) for n in df['numero'].iloc[-5:]]
-            alteracoes = sum(1 for i in range(len(seq_dz)-1) if seq_dz[i] != seq_dz[i+1])
-            if alteracoes >= 4:
-                st.warning("📌 Estratégia 5: 4x alterações entre dúzias nas últimas jogadas!")
+                # Estratégia 5 – Alterações de Dúzias (baseado nas últimas 5 jogadas)
+        def duzia(numero):
+            if numero == 0:
+                return 'D0'
+            elif 1 <= numero <= 12:
+                return 'D1'
+            elif 13 <= numero <= 24:
+                return 'D2'
+            else:
+                return 'D3'
+
+        def contar_alteracoes(grupo):
+            alteracoes = 0
+            for i in range(2, len(grupo)):
+                atual = grupo[i]
+                prev1 = grupo[i - 1]
+                prev2 = grupo[i - 2]
+                if atual != prev1 and atual != prev2:
+                    alteracoes += 1
+            return alteracoes
+
+        if len(df) >= 6:
+            ultimos = df['numero'].iloc[-6:].tolist()
+            dz_seq = [duzia(n) for n in ultimos]
+            alt_dz = contar_alteracoes(dz_seq)
+            alerta_dz = alt_dz >= 4
+            if alerta_dz:
+                ult_dz_validas = [d for d in dz_seq[-2:] if d != 'D0']
+                palpite_dz = set(ult_dz_validas)
+                palpite_dz.add('D0')
+                st.warning(f"📌 Estratégia 5: 4x alterações de dúzias detectadas. Jogar: {', '.join(sorted(palpite_dz))}")
+
+        # Estratégia 6 – Alterações de Colunas
+        def coluna(numero):
+            if numero == 0:
+                return 'C0'
+            elif numero in [1,4,7,10,13,16,19,22,25,28,31,34]:
+                return 'C1'
+            elif numero in [2,5,8,11,14,17,20,23,26,29,32,35]:
+                return 'C2'
+            elif numero in [3,6,9,12,15,18,21,24,27,30,33,36]:
+                return 'C3'
+
+        if len(df) >= 6:
+            ultimos = df['numero'].iloc[-6:].tolist()
+            col_seq = [coluna(n) for n in ultimos]
+            alt_col = contar_alteracoes(col_seq)
+            alerta_col = alt_col >= 4
+            if alerta_col:
+                ult_col_validas = [c for c in col_seq[-2:] if c != 'C0']
+                palpite_col = set(ult_col_validas)
+                palpite_col.add('C0')
+                st.warning(f"📌 Estratégia 6: 4x alterações de colunas detectadas. Jogar: {', '.join(sorted(palpite_col))}")
 
         # Histórico dos palpites por estratégia
-        historico = pd.DataFrame({
+                historico = pd.DataFrame({
             'numero': [numero_manual],
             'estrategia1': [resultado],
             'estrategia2': ['ALERTA' if all(x == ult_dzs[0] for x in ult_dzs) else ''],
             'estrategia3': ['ZIGZAG' if alternando else ''],
             'estrategia4': ['ATIVADO' if all(x in df['numero'].tolist()[-10:] for x in gatilho_personalizado) else ''],
-            'estrategia5': ['ALERTA' if alteracoes >= 4 else '']
+            'estrategia5': ['ALERTA' if alerta_dz else ''],
+            'estrategia6': ['ALERTA' if alerta_col else '']
         })
         if os.path.exists(ARQUIVO_ESTRATEGIAS):
             hist_ant = pd.read_csv(ARQUIVO_ESTRATEGIAS)
