@@ -2,61 +2,67 @@ import streamlit as st
 import pandas as pd
 import os
 
-# Arquivos
+# Regras atualizadas conforme o histórico fornecido (poderão ser editadas abaixo)
 ARQUIVO_REGRAS = "regras.csv"
 ARQUIVO_RESULTADOS = "dados.csv"
 ARQUIVO_ESTRATEGIAS = "historico_estrategias.csv"
-
-# Regras padrão (números proibidos após cada número anterior)
-REGRAS_PADRAO = {
-    0: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36],  # Todos proibidos após 0 (padrão conservador)
-    1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],  # Proibidos: mesma dúzia e vizinhos
-    2: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],  # Proibidos: mesma dúzia
-    3: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],  # Proibidos: mesma dúzia e meia dúzia
-    # ... (padrões similares para outros números)
-    4: [1, 2, 3, 4, 5, 6, 13, 14, 15, 16, 17, 18],
-    5: [4, 5, 6, 7, 8, 9, 16, 17, 18, 19, 20, 21],
-    6: [4, 5, 6, 7, 8, 9, 16, 17, 18, 19, 20, 21],
-    7: [7, 8, 9, 10, 11, 12, 19, 20, 21, 22, 23, 24],
-    8: [7, 8, 9, 10, 11, 12, 19, 20, 21, 22, 23, 24],
-    9: [7, 8, 9, 10, 11, 12, 19, 20, 21, 22, 23, 24],
-    10: [10, 11, 12, 13, 14, 15, 22, 23, 24, 25, 26, 27],
-    11: [10, 11, 12, 13, 14, 15, 22, 23, 24, 25, 26, 27],
-    12: [10, 11, 12, 13, 14, 15, 22, 23, 24, 25, 26, 27],
-    13: [13, 14, 15, 16, 17, 18, 25, 26, 27, 28, 29, 30],
-    14: [13, 14, 15, 16, 17, 18, 25, 26, 27, 28, 29, 30],
-    15: [13, 14, 15, 16, 17, 18, 25, 26, 27, 28, 29, 30],
-    16: [16, 17, 18, 19, 20, 21, 28, 29, 30, 31, 32, 33],
-    17: [16, 17, 18, 19, 20, 21, 28, 29, 30, 31, 32, 33],
-    18: [16, 17, 18, 19, 20, 21, 28, 29, 30, 31, 32, 33],
-    19: [19, 20, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36],
-    20: [19, 20, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36],
-    21: [19, 20, 21, 22, 23, 24, 31, 32, 33, 34, 35, 36],
-    22: [1, 2, 3, 10, 11, 12, 19, 20, 21, 22, 23, 24, 31, 32, 33],
-    23: [2, 3, 4, 11, 12, 13, 20, 21, 22, 23, 24, 25, 32, 33, 34],
-    24: [3, 4, 5, 12, 13, 14, 21, 22, 23, 24, 25, 26, 33, 34, 35],
-    25: [4, 5, 6, 13, 14, 15, 22, 23, 24, 25, 26, 27, 34, 35, 36],
-    26: [5, 6, 7, 14, 15, 16, 23, 24, 25, 26, 27, 28],
-    27: [6, 7, 8, 15, 16, 17, 24, 25, 26, 27, 28, 29],
-    28: [7, 8, 9, 16, 17, 18, 25, 26, 27, 28, 29, 30],
-    29: [8, 9, 10, 17, 18, 19, 26, 27, 28, 29, 30, 31],
-    30: [9, 10, 11, 18, 19, 20, 27, 28, 29, 30, 31, 32],
-    31: [10, 11, 12, 19, 20, 21, 28, 29, 30, 31, 32, 33],
-    32: [11, 12, 13, 20, 21, 22, 29, 30, 31, 32, 33, 34],
-    33: [12, 13, 14, 21, 22, 23, 30, 31, 32, 33, 34, 35],
-    34: [13, 14, 15, 22, 23, 24, 31, 32, 33, 34, 35, 36],
-    35: [14, 15, 16, 23, 24, 25, 32, 33, 34, 35, 36],
-    36: [15, 16, 17, 24, 25, 26, 33, 34, 35, 36]
-}
 
 # Carregar regras do arquivo ou usar padrão
 if os.path.exists(ARQUIVO_REGRAS):
     regras_df = pd.read_csv(ARQUIVO_REGRAS)
     regras = {int(row['anterior']): list(map(int, str(row['proibidos']).split(','))) for _, row in regras_df.iterrows()}
 else:
-    regras = REGRAS_PADRAO
+    regras = {
+        0: [5, 15, 25],
+        1: [3, 9, 27],
+        2: [4, 12, 36],
+        3: [1, 13, 35],
+        4: [2, 14, 34],
+        5: [0, 10, 30],
+        6: [18, 24, 33],
+        7: [19, 25, 28],
+        8: [20, 26, 29],
+        9: [1, 11, 31],
+        10: [2, 22, 32],
+        11: [3, 13, 23],
+        12: [4, 14, 24],
+        13: [5, 15, 25],
+        14: [6, 16, 26],
+        15: [7, 17, 27],
+        16: [8, 18, 28],
+        17: [9, 19, 29],
+        18: [10, 20, 30],
+        19: [11, 21, 31],
+        20: [12, 22, 32],
+        21: [13, 23, 33],
+        22: [14, 24, 34],
+        23: [15, 25, 35],
+        24: [16, 26, 36],
+        25: [0, 17, 27],
+        26: [1, 18, 28],
+        27: [2, 19, 29],
+        28: [3, 20, 30],
+        29: [4, 21, 31],
+        30: [5, 22, 32],
+        31: [6, 23, 33],
+        32: [7, 24, 34],
+        33: [8, 25, 35],
+        34: [9, 26, 36],
+        35: [10, 27, 0],
+        36: [11, 28, 1],
+    }
     regras_df = pd.DataFrame([{"anterior": k, "proibidos": ",".join(map(str, v))} for k, v in regras.items()])
 
+st.title("Roleta - Previsão e Simulação de Banca")
+
+# Editor de regras
+st.subheader("Editar Regras de Previsão")
+selected_anterior = st.selectbox("Escolha o número anterior para editar regras:", sorted(regras.keys()))
+atual_lista = regras.get(selected_anterior, [])
+nova_lista = st.multiselect("Escolha os números proibidos:", list(range(37)), default=atual_lista)
+if st.button("Salvar Regras Atualizadas"):
+    regras[selected_anterior] = nova_lista
+    regras_df = pd.DataFrame([{"anterior": k, "proibidos": ",".join(map(str, v))} for k, v in regras.items()])
     regras_df.to_csv(ARQUIVO_REGRAS, index=False)
     st.success("Regras atualizadas com sucesso!")
 
