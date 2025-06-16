@@ -120,3 +120,30 @@ if os.path.exists(ARQUIVO_ESTRATEGIAS):
         st.info(estrategia_reflexiva(historico_resultado))
 else:
     st.warning("Histórico insuficiente para análise.")
+# Campo para inserir novo número da roleta manualmente
+st.subheader("Inserir número manualmente")
+novo_numero = st.number_input("Digite o número da roleta (0 a 36):", min_value=0, max_value=36, step=1)
+if st.button("Salvar número"):
+    if os.path.exists(ARQUIVO_RESULTADOS):
+        df_resultados = pd.read_csv(ARQUIVO_RESULTADOS)
+    else:
+        df_resultados = pd.DataFrame(columns=["Numero"])
+
+    df_resultados = pd.concat([df_resultados, pd.DataFrame([{"Numero": novo_numero}])], ignore_index=True)
+    df_resultados.to_csv(ARQUIVO_RESULTADOS, index=False)
+    st.success(f"Número {novo_numero} salvo com sucesso!")
+
+# Mostra os últimos resultados
+st.subheader("Últimos números registrados")
+if os.path.exists(ARQUIVO_RESULTADOS):
+    df_resultados = pd.read_csv(ARQUIVO_RESULTADOS)
+    st.dataframe(df_resultados.tail(10))
+
+    # Botão de download
+    csv_download = df_resultados.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 Baixar resultados da roleta",
+        data=csv_download,
+        file_name="resultados_roleta.csv",
+        mime="text/csv"
+    )
