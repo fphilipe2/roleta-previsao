@@ -12,7 +12,7 @@ if os.path.exists(ARQUIVO_REGRAS):
     regras_df = pd.read_csv(ARQUIVO_REGRAS)
     regras = {int(row['anterior']): list(map(int, str(row['proibidos']).split(','))) for _, row in regras_df.iterrows()}
 else:
-    regras = {  # REGRAS OMITIDAS PARA BREVIDADE }
+    regras =   # REGRAS OMITIDAS PARA BREVIDADE
     regras_df = pd.DataFrame([{"anterior": k, "proibidos": ",".join(map(str, v))} for k, v in regras.items()])
 
 st.title("Roleta - Previsão e Simulação de Banca")
