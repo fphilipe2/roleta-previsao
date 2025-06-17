@@ -1,109 +1,143 @@
 import streamlit as st
 import pandas as pd
-import os
+from datetime import datetime
+from collections import deque
 
-ARQUIVO_RESULTADOS = "dados.csv"
-ARQUIVO_ESTRATEGIAS = "historico_estrategias.csv"
-
-st.title("Roleta - Previsão e Simulação de Banca")
-
-# Funções auxiliares
+# Funções auxiliares para análise
 
 def vizinhos(numero):
-    viz = []
-    for i in range(-5, 6):
-        n = (numero + i) % 37
-        viz.append(n)
-    return viz
+    return [(numero + i) % 37 for i in range(-5, 6)]
 
-def encontrar_palpite_sequencia(historico):
-    if len(historico) < 5:
-        return "Histórico insuficiente para gerar palpites."
+def obter_duzia(numero):
+    if numero == 0:
+        return 0
+    return (numero - 1) // 12 + 1
 
-    ultimos = historico[-3:]
-    conjunto_ultimos = set(ultimos)
-    for i in range(len(historico) - 5):
-        bloco = historico[i:i+3]
-        if set(bloco) == conjunto_ultimos:
-            proximo1 = historico[i+3]
-            proximo2 = historico[i+4]
-            palpite_final = set(vizinhos(proximo1) + vizinhos(proximo2))
-            return f"Palpite por sequência: V{proximo1}V{proximo2} → Jogar nos números: {sorted(palpite_final)}"
+def obter_coluna(numero):
+    if numero == 0:
+        return 0
+    return (numero - 1) % 3 + 1
 
-    return "Nenhuma sequência correspondente encontrada."
+def obter_cor(numero):
+    vermelhos = {1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36}
+    if numero == 0:
+        return 'verde'
+    return 'vermelho' if numero in vermelhos else 'preto'
 
-def obter_dozia(numero):
-    if 1 <= numero <= 12:
-        return "D1"
-    elif 13 <= numero <= 24:
-        return "D2"
-    elif 25 <= numero <= 36:
-        return "D3"
-    else:
-        return "D0"
+def obter_paridade(numero):
+    if numero == 0:
+        return 'zero'
+    return 'par' if numero % 2 == 0 else 'ímpar'
 
-def estrategia_duzias(historico):
-    if len(historico) < 3:
-        return "Histórico insuficiente para estratégia de dúzias."
+def obter_alto_baixo(numero):
+    if numero == 0:
+        return 'zero'
+    return 'baixo' if numero <= 18 else 'alto'
 
-    ultimos = historico[-3:]
+# Lista de números proibidos
+numeros_proibidos = {
+    1: [3, 8, 11, 12, 13, 28, 29, 30, 35, 36],
+    36: [3, 8, 11, 12, 13, 28, 29, 30, 35, 36],
+    2: [3, 7, 8, 11, 12, 23, 26, 28, 30, 35, 36],
+    20: [3, 7, 8, 11, 12, 23, 26, 28, 30, 35, 36],
+    3: [1, 2, 9, 14, 17, 20, 21, 22, 25, 31, 34],
+    8: [1, 2, 9, 14, 17, 20, 21, 22, 25, 31, 34],
+    4: [7, 11, 12, 13, 18, 27, 28, 29, 30, 35],
+    33: [7, 11, 12, 13, 18, 27, 28, 29, 30, 35],
+    5: [6, 7, 9, 13, 18, 27, 28, 29, 30, 35, 36],
+    32: [6, 7, 9, 13, 18, 27, 28, 29, 30, 35, 36],
+    6: [0, 3, 10, 15, 16, 19, 23, 24, 26, 32],
+    18: [0, 3, 10, 15, 16, 19, 23, 24, 26, 32],
+    7: [1, 2, 4, 15, 16, 19, 20, 21, 24, 32, 33],
+    9: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
+    17: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
+    10: [6, 9, 14, 17, 18, 22, 25, 27, 29, 31, 34],
+    0: [6, 9, 14, 17, 18, 22, 25, 27, 29, 31, 34],
+    12: [1, 2, 4, 14, 16, 19, 20, 21, 25, 31, 33],
+    13: [1, 4, 5, 15, 16, 19, 20, 21, 24, 32, 33],
+    14: [0, 3, 8, 10, 11, 12, 23, 26, 28, 30, 35],
+    25: [0, 3, 8, 10, 11, 12, 23, 26, 28, 30, 35],
+    15: [6, 7, 9, 13, 18, 22, 27, 28, 29, 34, 36],
+    24: [6, 7, 9, 13, 18, 22, 27, 28, 29, 34, 36],
+    16: [6, 7, 11, 12, 13, 18, 22, 27, 28, 29, 36],
+    19: [6, 7, 11, 12, 13, 18, 22, 27, 28, 29, 36],
+    22: [0, 3, 5, 8, 10, 15, 16, 23, 24, 26, 32],
+    23: [2, 6, 9, 14, 17, 18, 20, 22, 25, 31, 34],
+    26: [2, 6, 9, 14, 17, 18, 20, 22, 25, 31, 34],
+    27: [0, 1, 4, 5, 10, 15, 16, 19, 24, 32, 33],
+    29: [0, 1, 4, 5, 10, 15, 16, 19, 24, 32, 33],
+    28: [1, 2, 4, 14, 15, 16, 19, 20, 21, 24, 33],
+    30: [1, 2, 4, 9, 14, 15, 17, 21, 25, 31, 33],
+    35: [1, 2, 4, 9, 14, 15, 17, 21, 25, 31, 33],
+    31: [0, 3, 5, 8, 10, 11, 12, 23, 26, 30, 35],
+    34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
+}
 
-    if 0 in ultimos:
-        pos_0 = ultimos.index(0)
-        if pos_0 < 2:
-            ultimos = historico[-(3+pos_0):-1]
+# Armazenamento do histórico completo
+if 'historico' not in st.session_state:
+    st.session_state.historico = []
 
-    duzias = [obter_dozia(n) for n in ultimos]
+st.title("Bot de Estratégias para Roleta")
 
-    if len(set(duzias)) == 3:
-        return "Alternância completa detectada. Aguardar nova repetição."
+# Upload de CSV
+uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
+if uploaded_file:
+    st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
 
-    if len(set(duzias)) == 1:
-        return "Dúzia repetida detectada. Zerar contagem."
-
-    faltante = {"D1", "D2", "D3"} - set(duzias)
-    if faltante:
-        return f"Palpite por alternância: Apostar na dúzia {faltante.pop()}"
-    return "Nenhum palpite gerado."
-
-# Carrega histórico se existir
-if os.path.exists(ARQUIVO_ESTRATEGIAS):
-    df_hist = pd.read_csv(ARQUIVO_ESTRATEGIAS)
-    historico = df_hist['Numero'].tolist()
-else:
-    df_hist = pd.DataFrame(columns=["Numero"])
-    historico = []
-
-# Upload de arquivo CSV
-st.subheader("Importar histórico de números da roleta")
-file = st.file_uploader("Escolha um arquivo CSV", type=["csv"])
-if file is not None:
-    df_importado = pd.read_csv(file)
-    if 'Numero' in df_importado.columns:
-        historico = df_importado['Numero'].tolist()
-        df_hist = df_importado.copy()
-        st.success("Histórico importado com sucesso.")
-    else:
-        st.error("O CSV deve conter uma coluna chamada 'Numero'.")
-
-# Adição de novo número
-st.subheader("Adicionar novo número da roleta")
-novo_numero = st.number_input("Digite o número (0 a 36):", min_value=0, max_value=36, step=1)
+# Inserir novo número
+novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
 if st.button("Adicionar número"):
-    historico.append(novo_numero)
-    df_hist = pd.DataFrame(historico, columns=["Numero"])
-    df_hist.to_csv(ARQUIVO_ESTRATEGIAS, index=False)
-    st.success("Número adicionado ao histórico.")
+    st.session_state.historico.append(novo)
 
-# Exibir histórico atualizado
-st.subheader("Histórico Atual")
-st.dataframe(df_hist.tail(30))
+# Exportar histórico
+if st.button("Exportar histórico CSV"):
+    df = pd.DataFrame({'Número': st.session_state.historico})
+    df.to_csv("historico_atualizado.csv", index=False)
+    st.success("Histórico exportado com sucesso!")
 
-# Palpites
-st.subheader("Palpites")
-st.info(encontrar_palpite_sequencia(historico))
-st.info(estrategia_duzias(historico))
+# Estratégia Reflexiva
+resultado_reflexivo = []
+for i in range(1, len(st.session_state.historico)):
+    ant = st.session_state.historico[i-1]
+    atual = st.session_state.historico[i]
+    if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
+        resultado_reflexivo.append("X")
+    else:
+        resultado_reflexivo.append("1")
 
-# Download do histórico
-st.subheader("Exportar Histórico")
-st.download_button("Baixar histórico CSV", df_hist.to_csv(index=False).encode('utf-8'), file_name='historico_estrategias.csv', mime='text/csv')
+st.subheader("Reflexiva (1 ou X)")
+st.markdown(", ".join(resultado_reflexivo))
+
+# Estratégia de 3 números (em qualquer ordem)
+st.subheader("Palpite por sequência de 3 números (qualquer ordem)")
+if len(st.session_state.historico) >= 5:
+    ultimos = set(st.session_state.historico[-3:])
+    for i in range(len(st.session_state.historico) - 5):
+        seq = set(st.session_state.historico[i:i+3])
+        if seq == ultimos:
+            p1 = st.session_state.historico[i+3]
+            p2 = st.session_state.historico[i+4]
+            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
+            st.write(f"Palpite: V{p1}V{p2} => {viz}")
+            break
+
+# Estratégias por alternância
+st.subheader("Alertas por repetição (a partir de 9 vezes)")
+def alertar_repeticoes(tipo):
+    contagem = 1
+    ultimo = tipo(st.session_state.historico[0])
+    for n in st.session_state.historico[1:]:
+        atual = tipo(n)
+        if atual == ultimo:
+            contagem += 1
+            if contagem >= 9:
+                st.warning(f"Alerta: {tipo.__name__} repetida {contagem} vezes seguidas")
+        else:
+            contagem = 1
+            ultimo = atual
+
+alertar_repeticoes(obter_duzia)
+alertar_repeticoes(obter_coluna)
+alertar_repeticoes(obter_cor)
+alertar_repeticoes(obter_paridade)
+alertar_repeticoes(obter_alto_baixo)
