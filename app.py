@@ -2,93 +2,108 @@ import streamlit as st
 import pandas as pd
 import os
 
-# Regras atualizadas conforme o histórico fornecido
 ARQUIVO_RESULTADOS = "dados.csv"
+ARQUIVO_ESTRATEGIAS = "historico_estrategias.csv"
 
 st.title("Roleta - Previsão e Simulação de Banca")
 
-# Função para obter os 5 vizinhos anteriores e posteriores na roleta
-vizinhanca_roleta = {
-    0: [26, 32, 15, 19, 4, 21, 2, 25, 17, 34],
-    1: [20, 14, 31, 9, 22], 2: [25, 21, 4, 19, 15], 3: [26, 0, 32, 15, 19],
-    4: [19, 21, 2, 25, 17], 5: [10, 23, 8, 30, 11], 6: [27, 13, 36, 11, 30],
-    7: [28, 12, 35, 3, 26], 8: [30, 5, 10, 23, 1], 9: [31, 22, 18, 29, 7],
-    10: [23, 5, 8, 30, 11], 11: [30, 6, 36, 13, 27], 12: [35, 7, 28, 14, 20],
-    13: [36, 6, 30, 11, 27], 14: [20, 12, 35, 7, 28], 15: [19, 4, 21, 2, 25],
-    16: [33, 1, 20, 14, 31], 17: [34, 25, 2, 21, 4], 18: [29, 7, 28, 14, 20],
-    19: [4, 21, 2, 25, 17], 20: [14, 31, 9, 22, 18], 21: [2, 25, 17, 34, 6],
-    22: [18, 29, 7, 28, 14], 23: [8, 30, 11, 27, 13], 24: [16, 33, 1, 20, 14],
-    25: [17, 34, 6, 36, 13], 26: [0, 32, 15, 19, 4], 27: [11, 30, 6, 36, 13],
-    28: [7, 12, 35, 3, 26], 29: [9, 22, 18, 28, 14], 30: [11, 27, 13, 36, 6],
-    31: [9, 22, 18, 29, 7], 32: [15, 19, 4, 21, 2], 33: [1, 20, 14, 31, 9],
-    34: [25, 17, 2, 21, 4], 35: [12, 35, 7, 28, 14], 36: [13, 27, 11, 30, 6],
-}
+# Funções auxiliares
 
-# Função para encontrar sequência e gerar palpite
-def estrategia_nova(historico, ultimos_numeros):
+def vizinhos(numero):
+    viz = []
+    for i in range(-5, 6):
+        n = (numero + i) % 37
+        viz.append(n)
+    return viz
+
+def encontrar_palpite_sequencia(historico):
     if len(historico) < 5:
-        return "Histórico insuficiente."
+        return "Histórico insuficiente para gerar palpites."
 
-    for i in range(len(historico) - 2):
-        base = set(historico[i:i+3])
-        if base == set(ultimos_numeros):
-            if i+3 < len(historico) - 1:
-                prox1 = historico[i+3]
-                prox2 = historico[i+4] if i+4 < len(historico) else None
-
-                aposta = [prox1] + vizinhanca_roleta.get(prox1, [])
-                if prox2 is not None:
-                    aposta += [prox2] + vizinhanca_roleta.get(prox2, [])
-                aposta = sorted(set(aposta))
-
-                return f"Sequência encontrada! Apostar nos números: {aposta}"
+    ultimos = historico[-3:]
+    conjunto_ultimos = set(ultimos)
+    for i in range(len(historico) - 5):
+        bloco = historico[i:i+3]
+        if set(bloco) == conjunto_ultimos:
+            proximo1 = historico[i+3]
+            proximo2 = historico[i+4]
+            palpite_final = set(vizinhos(proximo1) + vizinhos(proximo2))
+            return f"Palpite por sequência: V{proximo1}V{proximo2} → Jogar nos números: {sorted(palpite_final)}"
 
     return "Nenhuma sequência correspondente encontrada."
 
-# Carregar histórico existente
-if os.path.exists(ARQUIVO_RESULTADOS):
-    df_hist = pd.read_csv(ARQUIVO_RESULTADOS)
+def obter_dozia(numero):
+    if 1 <= numero <= 12:
+        return "D1"
+    elif 13 <= numero <= 24:
+        return "D2"
+    elif 25 <= numero <= 36:
+        return "D3"
+    else:
+        return "D0"
+
+def estrategia_duzias(historico):
+    if len(historico) < 3:
+        return "Histórico insuficiente para estratégia de dúzias."
+
+    ultimos = historico[-3:]
+
+    if 0 in ultimos:
+        pos_0 = ultimos.index(0)
+        if pos_0 < 2:
+            ultimos = historico[-(3+pos_0):-1]
+
+    duzias = [obter_dozia(n) for n in ultimos]
+
+    if len(set(duzias)) == 3:
+        return "Alternância completa detectada. Aguardar nova repetição."
+
+    if len(set(duzias)) == 1:
+        return "Dúzia repetida detectada. Zerar contagem."
+
+    faltante = {"D1", "D2", "D3"} - set(duzias)
+    if faltante:
+        return f"Palpite por alternância: Apostar na dúzia {faltante.pop()}"
+    return "Nenhum palpite gerado."
+
+# Carrega histórico se existir
+if os.path.exists(ARQUIVO_ESTRATEGIAS):
+    df_hist = pd.read_csv(ARQUIVO_ESTRATEGIAS)
+    historico = df_hist['Numero'].tolist()
 else:
     df_hist = pd.DataFrame(columns=["Numero"])
+    historico = []
 
 # Upload de arquivo CSV
-uploaded_file = st.file_uploader("Importar arquivo de histórico (.csv)", type=["csv"])
-if uploaded_file is not None:
-    novo_df = pd.read_csv(uploaded_file)
-    df_hist = pd.concat([df_hist, novo_df]).drop_duplicates().reset_index(drop=True)
-    df_hist.to_csv(ARQUIVO_RESULTADOS, index=False)
-    st.success("Arquivo importado com sucesso!")
+st.subheader("Importar histórico de números da roleta")
+file = st.file_uploader("Escolha um arquivo CSV", type=["csv"])
+if file is not None:
+    df_importado = pd.read_csv(file)
+    if 'Numero' in df_importado.columns:
+        historico = df_importado['Numero'].tolist()
+        df_hist = df_importado.copy()
+        st.success("Histórico importado com sucesso.")
+    else:
+        st.error("O CSV deve conter uma coluna chamada 'Numero'.")
 
-# Inserção de novo número da roleta
-st.subheader("Inserir novo número da roleta")
-novo_numero = st.number_input("Novo número:", min_value=0, max_value=36, step=1)
+# Adição de novo número
+st.subheader("Adicionar novo número da roleta")
+novo_numero = st.number_input("Digite o número (0 a 36):", min_value=0, max_value=36, step=1)
 if st.button("Adicionar número"):
-    df_hist = pd.concat([df_hist, pd.DataFrame([[novo_numero]], columns=["Numero"])]).reset_index(drop=True)
-    df_hist.to_csv(ARQUIVO_RESULTADOS, index=False)
-    st.success(f"Número {novo_numero} adicionado!")
+    historico.append(novo_numero)
+    df_hist = pd.DataFrame(historico, columns=["Numero"])
+    df_hist.to_csv(ARQUIVO_ESTRATEGIAS, index=False)
+    st.success("Número adicionado ao histórico.")
 
-# Mostrar histórico atual
-st.subheader("Histórico de números")
+# Exibir histórico atualizado
+st.subheader("Histórico Atual")
 st.dataframe(df_hist.tail(30))
 
-# Estratégia nova
-st.subheader("Estratégia: Análise de sequência de 3")
-if len(df_hist) >= 3:
-    ultimos = df_hist["Numero"].tolist()[-3:]
-    historico = df_hist["Numero"].tolist()
-    resultado = estrategia_nova(historico, ultimos)
-    st.info(resultado)
+# Palpites
+st.subheader("Palpites")
+st.info(encontrar_palpite_sequencia(historico))
+st.info(estrategia_duzias(historico))
 
-# Exportar CSV
-st.download_button(
-    label="Exportar histórico CSV",
-    data=df_hist.to_csv(index=False),
-    file_name="dados_exportados.csv",
-    mime="text/csv"
-)
-
-# Limpar histórico (opcional)
-if st.button("Limpar histórico"):
-    df_hist = pd.DataFrame(columns=["Numero"])
-    df_hist.to_csv(ARQUIVO_RESULTADOS, index=False)
-    st.warning("Histórico apagado!")
+# Download do histórico
+st.subheader("Exportar Histórico")
+st.download_button("Baixar histórico CSV", df_hist.to_csv(index=False).encode('utf-8'), file_name='historico_estrategias.csv', mime='text/csv')
