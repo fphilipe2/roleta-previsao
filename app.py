@@ -122,8 +122,9 @@ if len(st.session_state.historico) >= 5:
             break
 
 # Estratégias por alternância
-st.subheader("Alertas por repetição (a partir de 9 vezes)")
 def alertar_repeticoes(tipo):
+    if len(st.session_state.historico) == 0:
+        return
     contagem = 1
     ultimo = tipo(st.session_state.historico[0])
     for n in st.session_state.historico[1:]:
@@ -135,7 +136,6 @@ def alertar_repeticoes(tipo):
         else:
             contagem = 1
             ultimo = atual
-
 alertar_repeticoes(obter_duzia)
 alertar_repeticoes(obter_coluna)
 alertar_repeticoes(obter_cor)
