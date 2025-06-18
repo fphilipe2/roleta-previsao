@@ -34,6 +34,7 @@ def obter_alto_baixo(numero):
         return 'zero'
     return 'baixo' if numero <= 18 else 'alto'
 
+# Lista de números proibidos (mesmo conteúdo)
 numeros_proibidos = {
     1: [3, 8, 11, 12, 13, 28, 29, 30, 35, 36],
     36: [3, 8, 11, 12, 13, 28, 29, 30, 35, 36],
@@ -72,6 +73,7 @@ numeros_proibidos = {
     34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
 }
 
+
 # Armazenamento do histórico completo
 if 'historico' not in st.session_state:
     st.session_state.historico = []
@@ -97,38 +99,18 @@ if st.button("Exportar histórico CSV"):
 # Estratégia Reflexiva
 resultado_reflexivo = []
 palpites = []
-reflexo_por_numero = {i: [] for i in range(37)}
-
 for i in range(1, len(st.session_state.historico)):
     ant = st.session_state.historico[i-1]
     atual = st.session_state.historico[i]
     if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
         resultado_reflexivo.append("X")
-        reflexo_por_numero[atual].append("X")
     else:
         resultado_reflexivo.append("1")
-        reflexo_por_numero[atual].append("1")
         palpites.append((i, ant, [n for n in range(37) if n not in numeros_proibidos.get(ant, [])]))
 
-st.subheader("Reflexiva por número (últimos 5 resultados)")
-col1, col2, col3 = st.columns(3)
+st.subheader("Reflexiva (1 ou X)")
+st.markdown(", ".join(resultado_reflexivo))
 
-with col1:
-    st.markdown("**0 a 11**")
-    for n in range(0, 12):
-        st.write(f"{n} = {' '.join(reflexo_por_numero[n][-5:])}")
-
-with col2:
-    st.markdown("**12 a 24**")
-    for n in range(12, 25):
-        st.write(f"{n} = {' '.join(reflexo_por_numero[n][-5:])}")
-
-with col3:
-    st.markdown("**25 a 36**")
-    for n in range(25, 37):
-        st.write(f"{n} = {' '.join(reflexo_por_numero[n][-5:])}")
-
-# Exibir os palpites mais recentes (até 5)
 # Exibir os palpites mais recentes (até 5)
 if palpites:
     st.subheader("Palpites de Jogo (últimos 5)")
@@ -141,7 +123,7 @@ st.subheader("Resultados por Número (reflexiva atribuída ao número anterior)"
 # Inicializar dicionário com listas
 resultados_por_numero = {n: [] for n in range(37)}
 
-# Preencher o dicionário com base no histórico
+# Preencher o dicionário com base no histórico (resultado vai para o número anterior)
 for i in range(1, len(st.session_state.historico)):
     anterior = st.session_state.historico[i - 1]
     atual = st.session_state.historico[i]
@@ -179,25 +161,11 @@ with col3:
         resultados = " ".join(resultados_por_numero[n])
         st.text(f"{n:2} = {resultados}")
 
-
-# Estratégia de 3 números (em qualquer ordem)
-st.subheader("Palpite por sequência de 3 números (qualquer ordem)")
-if len(st.session_state.historico) >= 5:
-    ultimos = set(st.session_state.historico[-3:])
-    for i in range(len(st.session_state.historico) - 5):
-        seq = set(st.session_state.historico[i:i+3])
-        if seq == ultimos:
-            p1 = st.session_state.historico[i+3]
-            p2 = st.session_state.historico[i+4]
-            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
-            st.write(f"Palpite: V{p1}V{p2} => {viz}")
-            break
-
 # Estratégias por alternância
 st.subheader("Alertas por repetição (a partir de 9 vezes)")
 def alertar_repeticoes(tipo):
     contagem = 1
-    ultimo = tipo(st.session_state.historico[0])
+    ultimo = tipo(st.session_state.historico[0]) if st.session_state.historico else None
     for n in st.session_state.historico[1:]:
         atual = tipo(n)
         if atual == ultimo:
@@ -208,9 +176,8 @@ def alertar_repeticoes(tipo):
             contagem = 1
             ultimo = atual
 
-if st.session_state.historico:
-    alertar_repeticoes(obter_duzia)
-    alertar_repeticoes(obter_coluna)
-    alertar_repeticoes(obter_cor)
-    alertar_repeticoes(obter_paridade)
-    alertar_repeticoes(obter_alto_baixo)
+alertar_repeticoes(obter_duzia)
+alertar_repeticoes(obter_coluna)
+alertar_repeticoes(obter_cor)
+alertar_repeticoes(obter_paridade)
+alertar_repeticoes(obter_alto_baixo)
