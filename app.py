@@ -34,8 +34,7 @@ def obter_alto_baixo(numero):
         return 'zero'
     return 'baixo' if numero <= 18 else 'alto'
 
-# Lista de números proibidos (mesmo conteúdo)
-{
+numeros_proibidos = {
     1: [3, 8, 11, 12, 13, 28, 29, 30, 35, 36],
     36: [3, 8, 11, 12, 13, 28, 29, 30, 35, 36],
     2: [3, 7, 8, 11, 12, 23, 26, 28, 30, 35, 36],
@@ -72,6 +71,7 @@ def obter_alto_baixo(numero):
     31: [0, 3, 5, 8, 10, 11, 12, 23, 26, 30, 35],
     34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
 }
+
 # Armazenamento do histórico completo
 if 'historico' not in st.session_state:
     st.session_state.historico = []
