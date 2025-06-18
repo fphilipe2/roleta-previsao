@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from collections import deque
+import base64
 
 # Funções auxiliares para análise
 
@@ -73,7 +74,6 @@ numeros_proibidos = {
     34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
 }
 
-
 # Armazenamento do histórico completo
 if 'historico' not in st.session_state:
     st.session_state.historico = []
@@ -96,76 +96,78 @@ if st.button("Exportar histórico CSV"):
     df.to_csv("historico_atualizado.csv", index=False)
     st.success("Histórico exportado com sucesso!")
 
-# Estratégia Reflexiva
-resultado_reflexivo = []
-palpites = []
+# Estratégia Reflexiva - associar resultado ao número anterior
+resultado_reflexivo = [''] * len(st.session_state.historico)
+por_numero = {n: [] for n in range(37)}
+
 for i in range(1, len(st.session_state.historico)):
-    ant = st.session_state.historico[i-1]
+    ant = st.session_state.historico[i - 1]
     atual = st.session_state.historico[i]
     if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
-        resultado_reflexivo.append("X")
+        resultado_reflexivo[i - 1] = "X"
+        por_numero[ant].append("X")
     else:
-        resultado_reflexivo.append("1")
-        palpites.append((i, ant, [n for n in range(37) if n not in numeros_proibidos.get(ant, [])]))
+        resultado_reflexivo[i - 1] = "1"
+        por_numero[ant].append("1")
 
-st.subheader("Reflexiva (1 ou X)")
-st.markdown(", ".join(resultado_reflexivo))
+# Mostrar reflexiva por faixa (3 colunas)
+st.subheader("Resultados por Número (Reflexiva)")
+col1, col2, col3 = st.columns(3)
+
+alarme_ativo = False
+
+def mostrar_resultados(coluna, inicio, fim):
+    global alarme_ativo
+    with coluna:
+        for n in range(inicio, fim + 1):
+            ultimos = por_numero[n][-5:] if por_numero[n] else []
+            alert_style = ""
+            if ultimos[-2:] == ["X", "X"] or ultimos.count("X") >= 2 and len(ultimos) >= 3:
+                alert_style = "background-color: #ffcccc; border: 2px solid red; padding: 4px;"
+                alarme_ativo = True
+            st.markdown(f"<div style='{alert_style}'><strong>{n}</strong> = {' '.join(ultimos)}</div>", unsafe_allow_html=True)
+
+mostrar_resultados(col1, 0, 11)
+mostrar_resultados(col2, 12, 24)
+mostrar_resultados(col3, 25, 36)
+
+# Som de alarme (uma vez por alerta)
+if alarme_ativo:
+    st.audio("https://www.soundjay.com/button/beep-07.wav", format="audio/wav")
 
 # Exibir os palpites mais recentes (até 5)
+palpites = []
+for i in range(1, len(st.session_state.historico)):
+    ant = st.session_state.historico[i - 1]
+    atual = st.session_state.historico[i]
+    if ant in numeros_proibidos and atual not in numeros_proibidos[ant]:
+        palpites.append((i, ant, [n for n in range(37) if n not in numeros_proibidos.get(ant, [])]))
+
 if palpites:
     st.subheader("Palpites de Jogo (últimos 5)")
     for idx, ant, sugestoes in palpites[-5:]:
         st.info(f"Após {ant}, evite {numeros_proibidos.get(ant, [])}. Sugestão: {sugestoes}")
 
-# Histórico reflexivo por número anterior (últimos 5 resultados)
-st.subheader("Resultados por Número (reflexiva atribuída ao número anterior)")
-
-# Inicializar dicionário com listas
-resultados_por_numero = {n: [] for n in range(37)}
-
-# Preencher o dicionário com base no histórico (resultado vai para o número anterior)
-for i in range(1, len(st.session_state.historico)):
-    anterior = st.session_state.historico[i - 1]
-    atual = st.session_state.historico[i]
-    if anterior in numeros_proibidos and atual in numeros_proibidos[anterior]:
-        resultados_por_numero[anterior].append("X")
-    else:
-        resultados_por_numero[anterior].append("1")
-
-# Manter só os 5 mais recentes
-for k in resultados_por_numero:
-    resultados_por_numero[k] = resultados_por_numero[k][-5:]
-
-# Organizar em 3 colunas: 0–11, 12–24, 25–36
-col1, col2, col3 = st.columns(3)
-
-faixa1 = range(0, 12)
-faixa2 = range(12, 25)
-faixa3 = range(25, 37)
-
-with col1:
-    st.markdown("**Números 0 a 11**")
-    for n in faixa1:
-        resultados = " ".join(resultados_por_numero[n])
-        st.text(f"{n:2} = {resultados}")
-
-with col2:
-    st.markdown("**Números 12 a 24**")
-    for n in faixa2:
-        resultados = " ".join(resultados_por_numero[n])
-        st.text(f"{n:2} = {resultados}")
-
-with col3:
-    st.markdown("**Números 25 a 36**")
-    for n in faixa3:
-        resultados = " ".join(resultados_por_numero[n])
-        st.text(f"{n:2} = {resultados}")
+# Estratégia de 3 números (em qualquer ordem)
+st.subheader("Palpite por sequência de 3 números (qualquer ordem)")
+if len(st.session_state.historico) >= 5:
+    ultimos = set(st.session_state.historico[-3:])
+    for i in range(len(st.session_state.historico) - 5):
+        seq = set(st.session_state.historico[i:i+3])
+        if seq == ultimos:
+            p1 = st.session_state.historico[i+3]
+            p2 = st.session_state.historico[i+4]
+            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
+            st.write(f"Palpite: V{p1}V{p2} => {viz}")
+            break
 
 # Estratégias por alternância
 st.subheader("Alertas por repetição (a partir de 9 vezes)")
 def alertar_repeticoes(tipo):
+    if len(st.session_state.historico) < 2:
+        return
     contagem = 1
-    ultimo = tipo(st.session_state.historico[0]) if st.session_state.historico else None
+    ultimo = tipo(st.session_state.historico[0])
     for n in st.session_state.historico[1:]:
         atual = tipo(n)
         if atual == ultimo:
