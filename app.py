@@ -35,7 +35,7 @@ def obter_alto_baixo(numero):
         return 'zero'
     return 'baixo' if numero <= 18 else 'alto'
 
-# Lista de números proibidos (mesmo conteúdo)
+# Lista de números proibidos
 numeros_proibidos = {
     1: [3, 8, 11, 12, 13, 28, 29, 30, 35, 36],
     36: [3, 8, 11, 12, 13, 28, 29, 30, 35, 36],
@@ -74,110 +74,105 @@ numeros_proibidos = {
     34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
 }
 
-# Armazenamento do histórico completo
+# Histórico em memória
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 
 st.title("Bot de Estratégias para Roleta")
 
-# Upload de CSV
+# Upload CSV
 uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 if uploaded_file:
     st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
 
 # Inserir novo número
 novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
-if st.button("Adicionar número"):
-    st.session_state.historico.append(novo)
+add, delete = st.columns(2)
+with add:
+    if st.button("Adicionar número"):
+        st.session_state.historico.append(novo)
+with delete:
+    if st.button("Excluir último número"):
+        if st.session_state.historico:
+            st.session_state.historico.pop()
 
 # Exportar histórico
 if st.button("Exportar histórico CSV"):
     df = pd.DataFrame({'Número': st.session_state.historico})
-    df.to_csv("historico_atualizado.csv", index=False)
-    st.success("Histórico exportado com sucesso!")
+    csv = df.to_csv(index=False).encode('utf-8')
+    st.download_button(label="Download CSV", data=csv, file_name='historico_atualizado.csv', mime='text/csv')
 
-# Estratégia Reflexiva - associar resultado ao número anterior
-resultado_reflexivo = [''] * len(st.session_state.historico)
+# Estratégia Reflexiva
 por_numero = {n: [] for n in range(37)}
-
 for i in range(1, len(st.session_state.historico)):
     ant = st.session_state.historico[i - 1]
     atual = st.session_state.historico[i]
     if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
-        resultado_reflexivo[i - 1] = "X"
         por_numero[ant].append("X")
     else:
-        resultado_reflexivo[i - 1] = "1"
         por_numero[ant].append("1")
 
 # Mostrar reflexiva por faixa (3 colunas)
 st.subheader("Resultados por Número (Reflexiva)")
 col1, col2, col3 = st.columns(3)
-
 alarme_ativo = False
 
 def mostrar_resultados(coluna, inicio, fim):
     global alarme_ativo
     with coluna:
         for n in range(inicio, fim + 1):
-            ultimos = por_numero[n][-5:] if por_numero[n] else []
-            alert_style = ""
-            if ultimos[-2:] == ["X", "X"] or ultimos.count("X") >= 2 and len(ultimos) >= 3:
-                alert_style = "background-color: #ffcccc; border: 2px solid red; padding: 4px;"
+            ultimos = por_numero[n][-5:]
+            style = ""
+            if len(ultimos) >= 2 and (ultimos[-2:] == ["X","X"] or ultimos.count("X")>=2):
+                style = "background-color:#ffcccc; border:2px solid red; padding:4px;"
                 alarme_ativo = True
-            st.markdown(f"<div style='{alert_style}'><strong>{n}</strong> = {' '.join(ultimos)}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='{style}'><strong>{n}</strong> = {' '.join(ultimos)}</div>", unsafe_allow_html=True)
 
-mostrar_resultados(col1, 0, 11)
-mostrar_resultados(col2, 12, 24)
-mostrar_resultados(col3, 25, 36)
+mostrar_resultados(col1,0,11)
+mostrar_resultados(col2,12,24)
+mostrar_resultados(col3,25,36)
 
-# Som de alarme (uma vez por alerta)
+# Tocar som se alarme ativo
 if alarme_ativo:
     st.audio("https://www.soundjay.com/button/beep-07.wav", format="audio/wav")
 
-# Exibir os palpites mais recentes (até 5)
+# Palpites de Jogo (últimos 5)
 palpites = []
 for i in range(1, len(st.session_state.historico)):
-    ant = st.session_state.historico[i - 1]
+    ant = st.session_state.historico[i-1]
     atual = st.session_state.historico[i]
     if ant in numeros_proibidos and atual not in numeros_proibidos[ant]:
         palpites.append((i, ant, [n for n in range(37) if n not in numeros_proibidos.get(ant, [])]))
-
 if palpites:
     st.subheader("Palpites de Jogo (últimos 5)")
     for idx, ant, sugestoes in palpites[-5:]:
         st.info(f"Após {ant}, evite {numeros_proibidos.get(ant, [])}. Sugestão: {sugestoes}")
 
-# Estratégia de 3 números (em qualquer ordem)
+# Palpite sequência de 3
 st.subheader("Palpite por sequência de 3 números (qualquer ordem)")
-if len(st.session_state.historico) >= 5:
-    ultimos = set(st.session_state.historico[-3:])
-    for i in range(len(st.session_state.historico) - 5):
-        seq = set(st.session_state.historico[i:i+3])
-        if seq == ultimos:
-            p1 = st.session_state.historico[i+3]
-            p2 = st.session_state.historico[i+4]
-            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
+if len(st.session_state.historico) >=5:
+    ult3=set(st.session_state.historico[-3:])
+    for i in range(len(st.session_state.historico)-5):
+        if set(st.session_state.historico[i:i+3])==ult3:
+            p1=st.session_state.historico[i+3]
+            p2=st.session_state.historico[i+4]
+            viz=sorted(set(vizinhos(p1)+vizinhos(p2)))
             st.write(f"Palpite: V{p1}V{p2} => {viz}")
             break
 
-# Estratégias por alternância
+# Alertas repetição 9+
 st.subheader("Alertas por repetição (a partir de 9 vezes)")
 def alertar_repeticoes(tipo):
-    if len(st.session_state.historico) < 2:
-        return
-    contagem = 1
-    ultimo = tipo(st.session_state.historico[0])
+    if len(st.session_state.historico)<2: return
+    cont=1
+    ult=tipo(st.session_state.historico[0])
     for n in st.session_state.historico[1:]:
-        atual = tipo(n)
-        if atual == ultimo:
-            contagem += 1
-            if contagem >= 9:
-                st.warning(f"Alerta: {tipo.__name__} repetida {contagem} vezes seguidas")
+        at=tipo(n)
+        if at==ult:
+            cont+=1
+            if cont>=9: st.warning(f"Alerta: {tipo.__name__} repetida {cont} vezes")
         else:
-            contagem = 1
-            ultimo = atual
-
+            cont=1; ult=at
 alertar_repeticoes(obter_duzia)
 alertar_repeticoes(obter_coluna)
 alertar_repeticoes(obter_cor)
