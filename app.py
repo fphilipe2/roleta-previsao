@@ -144,11 +144,9 @@ for i in range(1, len(st.session_state.historico)):
     if ant in numeros_proibidos and atual not in numeros_proibidos[ant]:
         palpites.append((i, ant, [n for n in range(37) if n not in numeros_proibidos.get(ant, [])]))
 if palpites:
-    st.subheader("Palpites de Jogo (últimos 5)")
-    for idx, ant, sugestoes in palpites[-5:]:
-        st.info(f"Após {ant}, evite {numeros_proibidos.get(ant, [])}. Sugestão: {sugestoes}")
-
-# Palpite sequência de 3
+    # Resultados completos Reflexiva - sequência completa
+st.subheader("Resultados Reflexiva - sequência completa")
+st.text(", ".join(resultado_reflexivo))
 st.subheader("Palpite por sequência de 3 números (qualquer ordem)")
 if len(st.session_state.historico) >=5:
     ult3=set(st.session_state.historico[-3:])
