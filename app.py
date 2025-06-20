@@ -136,41 +136,51 @@ mostrar_resultados(col3,25,36)
 if alarme_ativo:
     st.audio("https://www.soundjay.com/button/beep-07.wav", format="audio/wav")
 
-# Palpites de Jogo (últimos 5)
-palpites = []
+# Resultados completos Reflexiva - sequência completa
+resultado_reflexivo = []
+for n in st.session_state.historico[1:]:
+    pass  # resultado_reflexivo já calculado acima, reutilize ou recalcule se necessário
+# exibição da sequência
+st.subheader("Resultados Reflexiva - sequência completa")
+# recompute if not in memory
+resultado_reflexivo = []
 for i in range(1, len(st.session_state.historico)):
     ant = st.session_state.historico[i-1]
     atual = st.session_state.historico[i]
-    if ant in numeros_proibidos and atual not in numeros_proibidos[ant]:
-        palpites.append((i, ant, [n for n in range(37) if n not in numeros_proibidos.get(ant, [])]))
-if palpites:
-    # Resultados completos Reflexiva - sequência completa
-st.subheader("Resultados Reflexiva - sequência completa")
+    if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
+        resultado_reflexivo.append("X")
+    else:
+        resultado_reflexivo.append("1")
 st.text(", ".join(resultado_reflexivo))
+
+# Palpite sequência de 3
 st.subheader("Palpite por sequência de 3 números (qualquer ordem)")
-if len(st.session_state.historico) >=5:
-    ult3=set(st.session_state.historico[-3:])
-    for i in range(len(st.session_state.historico)-5):
-        if set(st.session_state.historico[i:i+3])==ult3:
-            p1=st.session_state.historico[i+3]
-            p2=st.session_state.historico[i+4]
-            viz=sorted(set(vizinhos(p1)+vizinhos(p2)))
+if len(st.session_state.historico) >= 5:
+    ult3 = set(st.session_state.historico[-3:])
+    for i in range(len(st.session_state.historico) - 5):
+        if set(st.session_state.historico[i:i+3]) == ult3:
+            p1 = st.session_state.historico[i+3]
+            p2 = st.session_state.historico[i+4]
+            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
             st.write(f"Palpite: V{p1}V{p2} => {viz}")
             break
 
 # Alertas repetição 9+
 st.subheader("Alertas por repetição (a partir de 9 vezes)")
 def alertar_repeticoes(tipo):
-    if len(st.session_state.historico)<2: return
-    cont=1
-    ult=tipo(st.session_state.historico[0])
+    if len(st.session_state.historico) < 2:
+        return
+    cont = 1
+    ult = tipo(st.session_state.historico[0])
     for n in st.session_state.historico[1:]:
-        at=tipo(n)
-        if at==ult:
-            cont+=1
-            if cont>=9: st.warning(f"Alerta: {tipo.__name__} repetida {cont} vezes")
+        at = tipo(n)
+        if at == ult:
+            cont += 1
+            if cont >= 9:
+                st.warning(f"Alerta: {tipo.__name__} repetida {cont} vezes")
         else:
-            cont=1; ult=at
+            cont = 1
+            ult = at
 alertar_repeticoes(obter_duzia)
 alertar_repeticoes(obter_coluna)
 alertar_repeticoes(obter_cor)
