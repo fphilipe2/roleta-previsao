@@ -121,7 +121,7 @@ def mostrar_resultados(coluna, inicio, fim):
     global alarme_ativo
     with coluna:
         for n in range(inicio, fim + 1):
-            ultimos = por_numero[n][-10:]
+            ultimos = por_numero[n][-20:]
             style = ""
             if len(ultimos) >= 2 and (ultimos[-2:] == ["X","X"] or ultimos.count("X")>=2):
                 style = "background-color:#ffcccc; border:2px solid red; padding:4px;"
