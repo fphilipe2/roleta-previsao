@@ -75,109 +75,41 @@ numeros_proibidos = {
     34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
 }
 
-# Armazenamento do histórico completo
 if 'historico' not in st.session_state:
     st.session_state.historico = []
-if 'reflexiva_resultados' not in st.session_state:
-    st.session_state.reflexiva_resultados = []
-if 'alternancia_resultados' not in st.session_state:
-    st.session_state.alternancia_resultados = []
 
 st.title("Bot de Estratégias para Roleta")
 
-# Upload de CSV
 uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 if uploaded_file:
     st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
 
-# Inserir novo número
 novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
 if st.button("Adicionar número"):
     st.session_state.historico.append(novo)
 
-# Botão para limpar alertas
-if st.button("Limpar Alertas"):
-    st.session_state.reflexiva_resultados.clear()
-    st.session_state.alternancia_resultados.clear()
-
-# Exportar histórico
 if st.button("Exportar histórico CSV"):
     df = pd.DataFrame({'Número': st.session_state.historico})
     df.to_csv("historico_atualizado.csv", index=False)
     st.success("Histórico exportado com sucesso!")
 
-# Estratégia Reflexiva - associar resultado ao número anterior
-por_numero = {n: deque(maxlen=20) for n in range(37)}
-reflexiva_seq = deque(maxlen=250)
+if st.button("Limpar último número") and st.session_state.historico:
+    st.session_state.historico.pop()
+    st.success("Último número removido.")
 
-for i in range(1, len(st.session_state.historico)):
-    ant = st.session_state.historico[i - 1]
-    atual = st.session_state.historico[i]
-    if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
-        por_numero[ant].append("X")
-        reflexiva_seq.append("X")
-    else:
-        por_numero[ant].append("1")
-        if reflexiva_seq and reflexiva_seq[-1].isdigit():
-            reflexiva_seq[-1] = str(int(reflexiva_seq[-1]) + 1)
-        else:
-            reflexiva_seq.append("1")
-
-# Mostrar reflexiva por faixa (3 colunas)
-st.subheader("Resultados por Número (Reflexiva)")
-col1, col2, col3 = st.columns(3)
-
-def mostrar_resultados(coluna, inicio, fim):
-    with coluna:
-        for n in range(inicio, fim + 1):
-            ultimos = list(por_numero[n])
-            st.markdown(f"<strong>{n}</strong> = {' '.join(ultimos)}", unsafe_allow_html=True)
-
-mostrar_resultados(col1, 0, 11)
-mostrar_resultados(col2, 12, 24)
-mostrar_resultados(col3, 25, 36)
-
-# Sequência Reflexiva
-st.subheader("Resultados Reflexiva - sequência completa")
-bloco = ""
-for i, val in enumerate(reflexiva_seq):
-    if val == "X":
-        bloco += f"<span style='color:red;'>X</span>"
-    else:
-        bloco += val
-    if (i + 1) % 50 == 0:
-        bloco += "<br>"
-st.markdown(f"<div style='font-family:monospace;'>{bloco}</div>", unsafe_allow_html=True)
-
-# Estratégia de Alternância Dupla (fixa por grupo)
-st.subheader("Resultados Estratégia de Alternância Dupla (Dúzia e Coluna)")
-grupos = [
-    [1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12],
-    [13, 16, 19, 22], [14, 17, 20, 23], [15, 18, 21, 24],
-    [25, 28, 31, 34], [26, 29, 32, 35], [27, 30, 33, 36]
-]
-
-alternancia_seq = deque(maxlen=250)
-for i in range(1, len(st.session_state.historico)):
-    prev = st.session_state.historico[i - 1]
-    atual = st.session_state.historico[i]
-
-    if prev == 0:
-        continue
-
-    grupo = next((g for g in grupos if prev in g), None)
-    if grupo:
-        if atual in grupo:
-            alternancia_seq.append("1")
-        else:
-            alternancia_seq.append("X")
-
-bloco_alt = ""
-for i, val in enumerate(alternancia_seq):
-    if val == "X":
-        bloco_alt += f"<span style='color:red;'>X</span>"
-    else:
-        bloco_alt += val
-    if (i + 1) % 50 == 0:
-        bloco_alt += "<br>"
-st.markdown(f"<div style='font-family:monospace;'>{bloco_alt}</div>", unsafe_allow_html=True)
+# Estratégia Padrão de 3 Números
+st.subheader("Padrão de 3 números detectado (qualquer ordem)")
+if len(st.session_state.historico) >= 5:
+    ultimos3 = set(st.session_state.historico[-3:])
+    for i in range(len(st.session_state.historico) - 5):
+        janela = set(st.session_state.historico[i:i+3])
+        if ultimos3 == janela:
+            if i + 5 < len(st.session_state.historico):
+                p1 = st.session_state.historico[i+3]
+                p2 = st.session_state.historico[i+4]
+                vizinhos1 = vizinhos(p1)
+                vizinhos2 = vizinhos(p2)
+                numeros_sugeridos = sorted(set(vizinhos1 + vizinhos2))
+                st.info(f"Padrão detectado: Sequência encontrada: {st.session_state.historico[i:i+3]} → Próximos: {p1}, {p2}")
+                st.write(f"Sugestão de aposta: V{p1}V{p2} → {numeros_sugeridos}")
+            break
