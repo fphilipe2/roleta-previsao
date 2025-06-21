@@ -75,41 +75,74 @@ numeros_proibidos = {
     34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
 }
 
+# Armazenamento do histórico completo
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 
 st.title("Bot de Estratégias para Roleta")
 
+# Upload de CSV
 uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 if uploaded_file:
     st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
 
+# Inserir novo número
 novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
 if st.button("Adicionar número"):
     st.session_state.historico.append(novo)
 
+# Exportar histórico
 if st.button("Exportar histórico CSV"):
     df = pd.DataFrame({'Número': st.session_state.historico})
     df.to_csv("historico_atualizado.csv", index=False)
     st.success("Histórico exportado com sucesso!")
 
-if st.button("Limpar último número") and st.session_state.historico:
-    st.session_state.historico.pop()
-    st.success("Último número removido.")
+# Estratégia Reflexiva - associar resultado ao número anterior
+resultado_reflexivo = [''] * len(st.session_state.historico)
+por_numero = {n: [] for n in range(37)}
 
-# Estratégia Padrão de 3 Números
-st.subheader("Padrão de 3 números detectado (qualquer ordem)")
+for i in range(1, len(st.session_state.historico)):
+    ant = st.session_state.historico[i - 1]
+    atual = st.session_state.historico[i]
+    if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
+        resultado_reflexivo[i - 1] = "X"
+        por_numero[ant].append("X")
+    else:
+        resultado_reflexivo[i - 1] = "1"
+        por_numero[ant].append("1")
+    if len(por_numero[ant]) > 20:
+        por_numero[ant].pop(0)
+
+# Mostrar reflexiva por faixa (3 colunas)
+st.subheader("Resultados por Número (Reflexiva)")
+col1, col2, col3 = st.columns(3)
+
+alarme_ativo = False
+
+def mostrar_resultados(coluna, inicio, fim):
+    global alarme_ativo
+    with coluna:
+        for n in range(inicio, fim + 1):
+            ultimos = por_numero[n] if por_numero[n] else []
+            alert_style = ""
+            if ultimos[-2:] == ["X", "X"] or ultimos.count("X") >= 2 and len(ultimos) >= 3:
+                alert_style = "background-color: #ffcccc; border: 2px solid red; padding: 4px;"
+                alarme_ativo = True
+            st.markdown(f"<div style='{alert_style}'><strong>{n}</strong> = {' '.join(ultimos)}</div>", unsafe_allow_html=True)
+
+mostrar_resultados(col1, 0, 11)
+mostrar_resultados(col2, 12, 24)
+mostrar_resultados(col3, 25, 36)
+
+# Estratégia de 3 números (em qualquer ordem)
+st.subheader("Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)")
 if len(st.session_state.historico) >= 5:
-    ultimos3 = set(st.session_state.historico[-3:])
+    ultimos = set(st.session_state.historico[-3:])
     for i in range(len(st.session_state.historico) - 5):
-        janela = set(st.session_state.historico[i:i+3])
-        if ultimos3 == janela:
-            if i + 5 < len(st.session_state.historico):
-                p1 = st.session_state.historico[i+3]
-                p2 = st.session_state.historico[i+4]
-                vizinhos1 = vizinhos(p1)
-                vizinhos2 = vizinhos(p2)
-                numeros_sugeridos = sorted(set(vizinhos1 + vizinhos2))
-                st.info(f"Padrão detectado: Sequência encontrada: {st.session_state.historico[i:i+3]} → Próximos: {p1}, {p2}")
-                st.write(f"Sugestão de aposta: V{p1}V{p2} → {numeros_sugeridos}")
+        seq = set(st.session_state.historico[i:i+3])
+        if seq == ultimos:
+            p1 = st.session_state.historico[i+3]
+            p2 = st.session_state.historico[i+4]
+            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
+            st.write(f"Palpite: V{p1}V{p2} => {viz}")
             break
