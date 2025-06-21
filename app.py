@@ -79,38 +79,29 @@ numeros_proibidos = {
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 
-if 'reflexiva_sequencia' not in st.session_state:
-    st.session_state.reflexiva_sequencia = []
-
-if 'alternancia_dupla' not in st.session_state:
-    st.session_state.alternancia_dupla = []
-
 st.title("Bot de Estratégias para Roleta")
 
-# Upload de CSV
 uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 if uploaded_file:
     st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
 
-# Inserir novo número
 novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
-if st.button("Adicionar número"):
-    st.session_state.historico.append(novo)
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Adicionar número"):
+        st.session_state.historico.append(novo)
+with col2:
+    if st.button("Excluir último número") and st.session_state.historico:
+        st.session_state.historico.pop()
 
-# Botão para excluir último número
-if st.button("Excluir último número") and st.session_state.historico:
-    st.session_state.historico.pop()
-
-# Exportar histórico
 if st.button("Exportar histórico CSV"):
     df = pd.DataFrame({'Número': st.session_state.historico})
     df.to_csv("historico_atualizado.csv", index=False)
     st.success("Histórico exportado com sucesso!")
 
-# Estratégia Reflexiva
 resultado_reflexivo = [''] * len(st.session_state.historico)
-por_numero = {n: [] for n in range(37)}
-st.session_state.reflexiva_sequencia = st.session_state.reflexiva_sequencia[-250:]
+por_numero = {n: deque(maxlen=20) for n in range(37)}
+reflexiva_seq = deque(maxlen=250)
 
 for i in range(1, len(st.session_state.historico)):
     ant = st.session_state.historico[i - 1]
@@ -118,26 +109,25 @@ for i in range(1, len(st.session_state.historico)):
     if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
         resultado_reflexivo[i - 1] = "X"
         por_numero[ant].append("X")
-        st.session_state.reflexiva_sequencia.append("X")
+        reflexiva_seq.append("<span style='color:red'>X</span>")
     else:
         resultado_reflexivo[i - 1] = "1"
         por_numero[ant].append("1")
-        st.session_state.reflexiva_sequencia.append("1")
+        count = 1
+        while len(reflexiva_seq) >= count and '1' in reflexiva_seq[-count]:
+            count += 1
+        reflexiva_seq.append(str(count))
 
-    # manter no máximo 20 resultados por número
-    if len(por_numero[ant]) > 20:
-        por_numero[ant].pop(0)
-
-# Mostrar reflexiva por faixa (3 colunas)
 st.subheader("Resultados por Número (Reflexiva)")
 col1, col2, col3 = st.columns(3)
+
 alarme_ativo = False
 
 def mostrar_resultados(coluna, inicio, fim):
     global alarme_ativo
     with coluna:
         for n in range(inicio, fim + 1):
-            ultimos = por_numero[n][-20:] if por_numero[n] else []
+            ultimos = list(por_numero[n])
             alert_style = ""
             if ultimos[-2:] == ["X", "X"] or ultimos.count("X") >= 2 and len(ultimos) >= 3:
                 alert_style = "background-color: #ffcccc; border: 2px solid red; padding: 4px;"
@@ -148,51 +138,28 @@ mostrar_resultados(col1, 0, 11)
 mostrar_resultados(col2, 12, 24)
 mostrar_resultados(col3, 25, 36)
 
-# Sequência completa formatada com contagem de 1s e quebra de linha
-st.subheader("Resultados Reflexiva - sequência completa")
-formatted_seq = []
-counter = 0
-line = ""
-for res in st.session_state.reflexiva_sequencia[-250:]:
-    if res == "1":
-        counter += 1
-        line += str(counter)
-    else:
-        counter = 0
-        line += f"<span style='color:red;'>X</span>"
-    if len(line) >= 80:
-        formatted_seq.append(line)
-        line = ""
-if line:
-    formatted_seq.append(line)
-for l in formatted_seq:
-    st.markdown(l, unsafe_allow_html=True)
-
-# Estratégia de Alternância Dupla (Dúzia e Coluna)
-st.subheader("Resultados Estratégia de Alternância Dupla (Dúzia e Coluna)")
-if len(st.session_state.historico) >= 4:
-    alternancia = []
-    for i in range(1, len(st.session_state.historico)):
-        d1 = obter_duzia(st.session_state.historico[i-1])
-        c1 = obter_coluna(st.session_state.historico[i-1])
-        d2 = obter_duzia(st.session_state.historico[i])
-        c2 = obter_coluna(st.session_state.historico[i])
-        alternancia.append((d1, c1) != (d2, c2))
-    cont = 0
-    for a in reversed(alternancia):
-        if a:
-            cont += 1
-        else:
-            break
-    if cont >= 4:
-        st.error(f"Alternância dupla detectada {cont} vezes seguidas!")
-        st.audio("https://www.soundjay.com/button/beep-07.wav", format="audio/wav")
-
-# Som de alarme geral
 if alarme_ativo:
     st.audio("https://www.soundjay.com/button/beep-07.wav", format="audio/wav")
 
-# Estratégias por repetição (9+)
+st.subheader("Resultados Reflexiva - sequência completa")
+chunks = ["".join(reflexiva_seq)[i:i+80] for i in range(0, len(reflexiva_seq), 80)]
+for c in chunks:
+    st.markdown(f"<div style='font-family:monospace'>{c}</div>", unsafe_allow_html=True)
+
+st.subheader("Resultados Estratégia de Alternância Dupla (Dúzia e Coluna)")
+if len(st.session_state.historico) >= 5:
+    alt_dupla = []
+    for i in range(2, len(st.session_state.historico)):
+        d1, c1 = obter_duzia(st.session_state.historico[i - 2]), obter_coluna(st.session_state.historico[i - 2])
+        d2, c2 = obter_duzia(st.session_state.historico[i - 1]), obter_coluna(st.session_state.historico[i - 1])
+        d3, c3 = obter_duzia(st.session_state.historico[i]), obter_coluna(st.session_state.historico[i])
+        if (d1 != d2 and d2 != d3 and d1 != d3) and (c1 != c2 and c2 != c3 and c1 != c3):
+            alt_dupla.append((st.session_state.historico[i - 2:i + 1]))
+    if alt_dupla:
+        for s in alt_dupla[-3:]:
+            st.markdown(f"Alternância Dupla detectada: {s}")
+        st.audio("https://www.soundjay.com/button/beep-07.wav", format="audio/wav")
+
 st.subheader("Alertas por repetição (a partir de 9 vezes)")
 def alertar_repeticoes(tipo):
     if len(st.session_state.historico) < 2:
