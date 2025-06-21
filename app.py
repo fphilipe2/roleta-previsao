@@ -78,41 +78,32 @@ numeros_proibidos = {
 # Armazenamento do histórico completo
 if 'historico' not in st.session_state:
     st.session_state.historico = []
-if 'alternancia_dupla_alertas' not in st.session_state:
-    st.session_state.alternancia_dupla_alertas = []
+if 'alternancia_dupla_resultados' not in st.session_state:
+    st.session_state.alternancia_dupla_resultados = []
+if 'reflexiva_sequencia' not in st.session_state:
+    st.session_state.reflexiva_sequencia = []
 
 st.title("Bot de Estratégias para Roleta")
 
-# Upload de CSV
 uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 if uploaded_file:
     st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
 
-# Inserir novo número
 novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
 if st.button("Adicionar número"):
     st.session_state.historico.append(novo)
-    if len(st.session_state.historico) > 250:
-        st.session_state.historico = st.session_state.historico[-250:]
-    # Limpar alertas após nova jogada
-    st.session_state.alternancia_dupla_alertas = []
 
-# Botão para excluir último número
-if st.button("Excluir último número"):
-    if st.session_state.historico:
-        st.session_state.historico.pop()
+if st.button("Remover último número") and st.session_state.historico:
+    st.session_state.historico.pop()
 
-# Exportar histórico
 if st.button("Exportar histórico CSV"):
     df = pd.DataFrame({'Número': st.session_state.historico})
     df.to_csv("historico_atualizado.csv", index=False)
     st.success("Histórico exportado com sucesso!")
 
-# Estratégia Reflexiva - associar resultado ao número anterior
 resultado_reflexivo = [''] * len(st.session_state.historico)
-por_numero = {n: deque(maxlen=20) for n in range(37)}
-reflexiva_sequencia = []
-contador = 0
+por_numero = {n: [] for n in range(37)}
+st.session_state.reflexiva_sequencia.clear()
 
 for i in range(1, len(st.session_state.historico)):
     ant = st.session_state.historico[i - 1]
@@ -120,112 +111,79 @@ for i in range(1, len(st.session_state.historico)):
     if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
         resultado_reflexivo[i - 1] = "X"
         por_numero[ant].append("X")
-        reflexiva_sequencia.append("<span style='color:red;'>X</span>")
-        contador = 0
+        st.session_state.reflexiva_sequencia.append("X")
     else:
         resultado_reflexivo[i - 1] = "1"
         por_numero[ant].append("1")
-        contador += 1
-        reflexiva_sequencia.append(str(contador))
+        st.session_state.reflexiva_sequencia.append("1")
+    if len(por_numero[ant]) > 20:
+        por_numero[ant].pop(0)
+    if len(st.session_state.reflexiva_sequencia) > 250:
+        st.session_state.reflexiva_sequencia.pop(0)
 
-# Mostrar reflexiva por faixa (3 colunas)
 st.subheader("Resultados por Número (Reflexiva)")
 col1, col2, col3 = st.columns(3)
 
-alarme_ativo = False
-
 def mostrar_resultados(coluna, inicio, fim):
-    global alarme_ativo
     with coluna:
         for n in range(inicio, fim + 1):
-            ultimos = list(por_numero[n])
-            alert_style = ""
-            if ultimos[-2:] == ["X", "X"] or ultimos.count("X") >= 2 and len(ultimos) >= 3:
-                alert_style = "background-color: #ffcccc; border: 2px solid red; padding: 4px;"
-                alarme_ativo = True
-            st.markdown(f"<div style='{alert_style}'><strong>{n}</strong> = {' '.join(ultimos)}</div>", unsafe_allow_html=True)
+            ultimos = por_numero[n][-20:] if por_numero[n] else []
+            st.markdown(f"<strong>{n}</strong> = {' '.join(ultimos)}", unsafe_allow_html=True)
 
 mostrar_resultados(col1, 0, 11)
 mostrar_resultados(col2, 12, 24)
 mostrar_resultados(col3, 25, 36)
 
-# Som de alarme (uma vez por alerta)
-if alarme_ativo:
-    st.audio("https://www.soundjay.com/button/beep-07.wav", format="audio/wav")
-
-# Reflexiva completa
 st.subheader("Resultados Reflexiva - sequência completa")
-linhas = []
-temp = ""
-for i, val in enumerate(reflexiva_sequencia):
-    temp += val
-    if (i + 1) % 80 == 0:
-        linhas.append(temp)
-        temp = ""
-if temp:
-    linhas.append(temp)
-for linha in linhas:
-    st.markdown(f"<span style='font-size:16px;'>{linha}</span>", unsafe_allow_html=True)
+formatada = []
+cont = 0
+for v in st.session_state.reflexiva_sequencia:
+    if v == "1":
+        cont += 1
+        formatada.append(str(cont))
+    else:
+        formatada.append(f"<span style='color:red'>X</span>")
+        cont = 0
+st.markdown('<br>'.join([''.join(formatada[i:i+50]) for i in range(0, len(formatada), 50)]), unsafe_allow_html=True)
 
-# Estratégia de Alternância Dupla
 st.subheader("Resultados Estratégia de Alternância Dupla (Dúzia e Coluna)")
-alt_dupla_resultados = []
 if len(st.session_state.historico) >= 5:
-    for i in range(len(st.session_state.historico) - 4):
-        alternancias = []
-        for j in range(i, i + 5):
-            d = obter_duzia(st.session_state.historico[j])
-            c = obter_coluna(st.session_state.historico[j])
-            alternancias.append((d, c))
-        if all(alternancias[k] != alternancias[k + 1] for k in range(4)):
-            st.session_state.alternancia_dupla_alertas.append(st.session_state.historico[i:i + 5])
-
-# Mostrar alertas alternância dupla
-for alerta in st.session_state.alternancia_dupla_alertas:
-    st.warning(f"Alternância Dupla detectada: {alerta}")
-    if len(st.session_state.historico) > alerta[-1] + 1:
-        res = st.session_state.historico[alerta[-1] + 1]
-        # Verifica se houve acerto em coluna ou dúzia
-        d_last = obter_duzia(alerta[-1])
-        c_last = obter_coluna(alerta[-1])
-        d_new = obter_duzia(res)
-        c_new = obter_coluna(res)
-        if d_new == d_last or c_new == c_last:
-            alt_dupla_resultados.append("1")
+    alternancias = []
+    for i in range(1, len(st.session_state.historico)):
+        n_ant = st.session_state.historico[i - 1]
+        n_atual = st.session_state.historico[i]
+        if obter_duzia(n_ant) != obter_duzia(n_atual) and obter_coluna(n_ant) != obter_coluna(n_atual):
+            alternancias.append(n_atual)
         else:
-            alt_dupla_resultados.append("<span style='color:red;'>X</span>")
+            alternancias = []
+        if len(alternancias) >= 4:
+            st.write(f"Alternância Dupla detectada: {alternancias}")
+            if len(st.session_state.historico) > i + 1:
+                proximo = st.session_state.historico[i + 1]
+                if obter_duzia(proximo) == obter_duzia(n_atual) or obter_coluna(proximo) == obter_coluna(n_atual):
+                    st.session_state.alternancia_dupla_resultados.append("1")
+                else:
+                    st.session_state.alternancia_dupla_resultados.append("<span style='color:red'>X</span>")
+            break
+st.markdown(' '.join(st.session_state.alternancia_dupla_resultados), unsafe_allow_html=True)
 
-if alt_dupla_resultados:
-    st.markdown(f"Resultado: {' '.join(alt_dupla_resultados)}", unsafe_allow_html=True)
+st.subheader("Estratégia por sequência de 3 números (qualquer ordem)")
+if len(st.session_state.historico) >= 5:
+    ultimos_set = set(st.session_state.historico[-3:])
+    for i in range(len(st.session_state.historico) - 5):
+        seq_set = set(st.session_state.historico[i:i+3])
+        if seq_set == ultimos_set:
+            p1 = st.session_state.historico[i+3]
+            p2 = st.session_state.historico[i+4]
+            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
+            st.write(f"Palpite: V{p1}V{p2} => {viz}")
+            break
 
-# Estratégias por repetição
-st.subheader("Alertas por repetição (a partir de 9 vezes)")
-repeticoes = []
-def alertar_repeticoes(tipo):
-    if len(st.session_state.historico) < 2:
-        return
-    contagem = 1
-    ultimo = tipo(st.session_state.historico[0])
-    for n in st.session_state.historico[1:]:
-        atual = tipo(n)
-        if atual == ultimo:
-            contagem += 1
-            if contagem >= 9:
-                repeticoes.append(f"{tipo.__name__} repetida {contagem} vezes seguidas")
-        else:
-            contagem = 1
-            ultimo = atual
-
-alertar_repeticoes(obter_duzia)
-alertar_repeticoes(obter_coluna)
-alertar_repeticoes(obter_cor)
-alertar_repeticoes(obter_paridade)
-alertar_repeticoes(obter_alto_baixo)
-
-if repeticoes:
-    for r in repeticoes:
-        st.warning(r)
-
-# Limpa alertas após nova jogada
 if st.button("Limpar alertas"):
+    st.session_state.alternancia_dupla_resultados.clear()
+    st.session_state.reflexiva_sequencia.clear()
+    for k in por_numero:
+        por_numero[k].clear()
+    st.rerun()
+
     st.session_state.alternancia_dupla_alertas = []
