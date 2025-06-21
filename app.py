@@ -79,6 +79,12 @@ numeros_proibidos = {
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 
+if 'reflexiva_sequencia' not in st.session_state:
+    st.session_state.reflexiva_sequencia = []
+
+if 'alternancia_dupla' not in st.session_state:
+    st.session_state.alternancia_dupla = []
+
 st.title("Bot de Estratégias para Roleta")
 
 # Upload de CSV
@@ -101,9 +107,10 @@ if st.button("Exportar histórico CSV"):
     df.to_csv("historico_atualizado.csv", index=False)
     st.success("Histórico exportado com sucesso!")
 
-# Estratégia Reflexiva - associar resultado ao número anterior
+# Estratégia Reflexiva
 resultado_reflexivo = [''] * len(st.session_state.historico)
 por_numero = {n: [] for n in range(37)}
+st.session_state.reflexiva_sequencia = st.session_state.reflexiva_sequencia[-250:]
 
 for i in range(1, len(st.session_state.historico)):
     ant = st.session_state.historico[i - 1]
@@ -111,24 +118,26 @@ for i in range(1, len(st.session_state.historico)):
     if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
         resultado_reflexivo[i - 1] = "X"
         por_numero[ant].append("X")
+        st.session_state.reflexiva_sequencia.append("X")
     else:
         resultado_reflexivo[i - 1] = "1"
         por_numero[ant].append("1")
+        st.session_state.reflexiva_sequencia.append("1")
 
+    # manter no máximo 20 resultados por número
     if len(por_numero[ant]) > 20:
         por_numero[ant].pop(0)
 
 # Mostrar reflexiva por faixa (3 colunas)
 st.subheader("Resultados por Número (Reflexiva)")
 col1, col2, col3 = st.columns(3)
-
 alarme_ativo = False
 
 def mostrar_resultados(coluna, inicio, fim):
     global alarme_ativo
     with coluna:
         for n in range(inicio, fim + 1):
-            ultimos = por_numero[n]
+            ultimos = por_numero[n][-20:] if por_numero[n] else []
             alert_style = ""
             if ultimos[-2:] == ["X", "X"] or ultimos.count("X") >= 2 and len(ultimos) >= 3:
                 alert_style = "background-color: #ffcccc; border: 2px solid red; padding: 4px;"
@@ -139,43 +148,51 @@ mostrar_resultados(col1, 0, 11)
 mostrar_resultados(col2, 12, 24)
 mostrar_resultados(col3, 25, 36)
 
-# Som de alarme (uma vez por alerta)
+# Sequência completa formatada com contagem de 1s e quebra de linha
+st.subheader("Resultados Reflexiva - sequência completa")
+formatted_seq = []
+counter = 0
+line = ""
+for res in st.session_state.reflexiva_sequencia[-250:]:
+    if res == "1":
+        counter += 1
+        line += str(counter)
+    else:
+        counter = 0
+        line += f"<span style='color:red;'>X</span>"
+    if len(line) >= 80:
+        formatted_seq.append(line)
+        line = ""
+if line:
+    formatted_seq.append(line)
+for l in formatted_seq:
+    st.markdown(l, unsafe_allow_html=True)
+
+# Estratégia de Alternância Dupla (Dúzia e Coluna)
+st.subheader("Resultados Estratégia de Alternância Dupla (Dúzia e Coluna)")
+if len(st.session_state.historico) >= 4:
+    alternancia = []
+    for i in range(1, len(st.session_state.historico)):
+        d1 = obter_duzia(st.session_state.historico[i-1])
+        c1 = obter_coluna(st.session_state.historico[i-1])
+        d2 = obter_duzia(st.session_state.historico[i])
+        c2 = obter_coluna(st.session_state.historico[i])
+        alternancia.append((d1, c1) != (d2, c2))
+    cont = 0
+    for a in reversed(alternancia):
+        if a:
+            cont += 1
+        else:
+            break
+    if cont >= 4:
+        st.error(f"Alternância dupla detectada {cont} vezes seguidas!")
+        st.audio("https://www.soundjay.com/button/beep-07.wav", format="audio/wav")
+
+# Som de alarme geral
 if alarme_ativo:
     st.audio("https://www.soundjay.com/button/beep-07.wav", format="audio/wav")
 
-# Exibir sequência completa com contagem e quebra de linha
-st.subheader("Resultados Reflexiva - sequência completa")
-
-sequencia = []
-contador = 1
-
-for res in resultado_reflexivo[-250:]:
-    if res == '1':
-        sequencia.append(str(contador))
-        contador += 1
-    elif res == 'X':
-        sequencia.append('<span style="color:red;"><strong>X</strong></span>')
-        contador = 1
-
-# Agrupar por linha com até 50 caracteres
-linhas = []
-linha = ''
-for s in sequencia:
-    if len(linha) + len(s) > 50:
-        linhas.append(linha)
-        linha = ''
-    linha += s
-if linha:
-    linhas.append(linha)
-
-html = "<div style='font-family: monospace; line-height: 1.5;'>"
-for linha in linhas:
-    html += f"{linha}<br>"
-html += "</div>"
-
-st.markdown(html, unsafe_allow_html=True)
-
-# Estratégias por alternância
+# Estratégias por repetição (9+)
 st.subheader("Alertas por repetição (a partir de 9 vezes)")
 def alertar_repeticoes(tipo):
     if len(st.session_state.historico) < 2:
