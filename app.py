@@ -203,7 +203,7 @@ for i in range(len(historico) - 5):
     34: [6, 27, 13, 36, 11, 30, 8, 23, 10, 5],
     35: [12, 28, 7, 29, 18, 22, 9, 31, 14, 20],
     36: [11, 30, 8, 23, 10, 5, 24, 16, 33, 1]
-
+                }
 
                 viz_p1 = vizinhos_roleta.get(p1, [])
                 viz_p2 = vizinhos_roleta.get(p2, [])
