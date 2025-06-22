@@ -57,7 +57,12 @@ st.title("Bot de Estratégias para Roleta")
 # Upload CSV
 uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 if uploaded_file:
-    st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
+    dados_csv = pd.read_csv(uploaded_file)['Número'].tolist()
+    if 'historico' not in st.session_state or not st.session_state.historico:
+        st.session_state.historico = dados_csv
+    else:
+        st.session_state.historico.extend(dados_csv)
+
 
 # Inserir novo número
 novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
