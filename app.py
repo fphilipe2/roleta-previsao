@@ -135,6 +135,65 @@ for i, col in zip(range(0, 37, 12), [col1, col2, col3]):
 # Retorna os 5 vizinhos anteriores e 5 posteriores (com rotação de 0 a 36)
 def vizinhos(numero):
     return [(numero + i) % 37 for i in range(-5, 6)]
+# 🔄 Estratégia: Padrão de 3 Números (Simulação Completa com Histórico)
+st.subheader("📊 Simulação Completa - Estratégia: Padrão de 3 Números (Histórico)")
+
+banca_inicial = 600
+banca = banca_inicial
+gales = [22, 44, 132, 396]
+historico = st.session_state.historico
+resultados_simulados = []
+
+for i in range(len(historico) - 5):
+    padrao = set(historico[i:i+3])
+    if len(padrao) < 3:
+        continue
+
+    if set(historico[i+3:i+6]) == padrao:
+        p1, p2 = historico[i+3], historico[i+4]
+        try:
+            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
+        except:
+            continue
+
+        contagem_fichas = {}
+        for num in viz:
+            contagem_fichas[num] = contagem_fichas.get(num, 0) + 1
+
+        palpite = viz
+        resultado = ""
+        ganho = 0
+        tentativa_realizada = False
+
+        for j, valor in enumerate(gales):
+            if i + 6 + j >= len(historico):
+                break
+
+            sorteado = historico[i + 6 + j]
+            fichas_no_sorteado = contagem_fichas.get(sorteado, 0)
+
+            if fichas_no_sorteado > 0:
+                premio = 36 * fichas_no_sorteado
+                ganho = premio
+                banca += ganho
+                resultado = f"✅ GREEN no Gale {j} ({sorteado}) - Ganhou R$ {premio}"
+                tentativa_realizada = True
+                break
+            else:
+                banca -= valor
+                resultado = f"❌ RED no Gale {j} ({sorteado}) - Perdeu R$ {valor}"
+                tentativa_realizada = True
+
+        if tentativa_realizada:
+            resultados_simulados.append(f"Padrão: {padrao} - Palpite: V{p1}V{p2} - {resultado}")
+
+# Exibir últimos 5 resultados
+for r in resultados_simulados[-5:]:
+    st.write(r)
+
+st.markdown(f"**Banca Inicial:** R$ {banca_inicial}")
+st.markdown(f"**Banca Final:** R$ {banca:.2f}")
+st.markdown(f"**Lucro/Prejuízo:** R$ {banca - banca_inicial:.2f}")
 
 # Estratégia Reflexiva - sequência completa
 st.subheader("Resultados Reflexiva - sequência completa")
