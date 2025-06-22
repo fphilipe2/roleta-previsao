@@ -151,12 +151,15 @@ st.markdown(formatar_estrategia(st.session_state.alternancia_dupla_seq), unsafe_
 # Estratégia de 3 números (em qualquer ordem)
 st.subheader("Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)")
 if len(st.session_state.historico) >= 5:
-    ultimos = set(st.session_state.historico[-3:])
+    ultimos_set = set(st.session_state.historico[-3:])
+
     for i in range(len(st.session_state.historico) - 5):
-        seq = set(st.session_state.historico[i:i+3])
-        if seq == ultimos:
-            p1 = st.session_state.historico[i+3]
-            p2 = st.session_state.historico[i+4]
-            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
-            st.write(f"Padrão detectado: {seq}. V{p1}V{p2}: {viz}")
+        trio = st.session_state.historico[i:i+3]
+        if set(trio) == ultimos_set:
+            if i + 5 < len(st.session_state.historico):
+                p1 = st.session_state.historico[i+3]
+                p2 = st.session_state.historico[i+4]
+                viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
+                st.write(f"Padrão detectado: {set(trio)}. V{p1}V{p2}: {viz}")
             break
+
