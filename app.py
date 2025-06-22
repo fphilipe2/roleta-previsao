@@ -150,17 +150,25 @@ st.markdown(formatar_estrategia(st.session_state.alternancia_dupla_seq), unsafe_
 
 # Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)
 st.subheader("Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)")
+
 if len(st.session_state.historico) >= 5:
-    ultimos_set = set(st.session_state.historico[-3:])
+    ultimos = st.session_state.historico[-3:]
+    ultimos_set = set(ultimos)
 
     for i in range(len(st.session_state.historico) - 5):
-        trio = st.session_state.historico[i:i+3]
-        if set(trio) == ultimos_set:
+        padrao = st.session_state.historico[i:i+3]
+        if set(padrao) == ultimos_set:
             if i + 5 < len(st.session_state.historico):
                 p1 = st.session_state.historico[i+3]
                 p2 = st.session_state.historico[i+4]
-                viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
-                st.write(f"Padrão detectado: {set(trio)}. V{p1}V{p2}: {viz}")
+                try:
+                    viz1 = vizinhos(p1)
+                    viz2 = vizinhos(p2)
+                    viz = sorted(set(viz1 + viz2))
+                    st.write(f"Padrão detectado: {set(padrao)}. V{p1}V{p2}: {viz}")
+                except Exception as e:
+                    st.error(f"Erro ao gerar vizinhos: {e}")
             break
+
 
 
