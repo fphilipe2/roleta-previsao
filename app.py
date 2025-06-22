@@ -135,7 +135,6 @@ for i, col in zip(range(0, 37, 12), [col1, col2, col3]):
 # Retorna os 5 vizinhos anteriores e 5 posteriores (com rotação de 0 a 36)
 def vizinhos(numero):
     return [(numero + i) % 37 for i in range(-5, 6)]
-# 🔄 Estratégia: Padrão de 3 Números (Simulação Completa com Histórico)
 st.subheader("📊 Simulação Completa - Estratégia: Padrão de 3 Números (Histórico)")
 
 banca_inicial = 600
@@ -144,50 +143,54 @@ gales = [22, 44, 132, 396]
 historico = st.session_state.historico
 resultados_simulados = []
 
+# Armazenar padrões já testados para evitar repetições
+padroes_testados = set()
+
 for i in range(len(historico) - 5):
-    padrao = set(historico[i:i+3])
-    if len(padrao) < 3:
+    padrao_base = set(historico[i:i+3])
+    if len(padrao_base) < 3 or tuple(sorted(padrao_base)) in padroes_testados:
         continue
 
-    if set(historico[i+3:i+6]) == padrao:
-        p1, p2 = historico[i+3], historico[i+4]
-        try:
-            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
-        except:
-            continue
+    # Procurar nova ocorrência do padrão
+    for j in range(i+3, len(historico) - 2):
+        proximo_padrao = set(historico[j:j+3])
+        if padrao_base == proximo_padrao:
+            p1, p2 = historico[j], historico[j+1]
+            padroes_testados.add(tuple(sorted(padrao_base)))
+            try:
+                viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
+                contagem_fichas = {}
+                for num in viz:
+                    contagem_fichas[num] = contagem_fichas.get(num, 0) + 1
 
-        contagem_fichas = {}
-        for num in viz:
-            contagem_fichas[num] = contagem_fichas.get(num, 0) + 1
+                resultado = ""
+                tentativa_realizada = False
 
-        palpite = viz
-        resultado = ""
-        ganho = 0
-        tentativa_realizada = False
+                for gale_index, valor in enumerate(gales):
+                    sorteio_index = j + 2 + gale_index
+                    if sorteio_index >= len(historico):
+                        break
+                    sorteado = historico[sorteio_index]
+                    fichas = contagem_fichas.get(sorteado, 0)
 
-        for j, valor in enumerate(gales):
-            if i + 6 + j >= len(historico):
-                break
+                    if fichas > 0:
+                        premio = 36 * fichas
+                        saldo = premio - sum(gales[:gale_index + 1])
+                        banca += saldo
+                        resultado = f"✅ GREEN no Gale {gale_index} ({sorteado}) - Ganhou R$ {premio} (saldo {saldo:+})"
+                        tentativa_realizada = True
+                        break
+                    else:
+                        banca -= valor
+                        resultado = f"❌ RED no Gale {gale_index} ({sorteado}) - Perdeu R$ {valor}"
 
-            sorteado = historico[i + 6 + j]
-            fichas_no_sorteado = contagem_fichas.get(sorteado, 0)
+                if tentativa_realizada or gale_index == len(gales) - 1:
+                    resultados_simulados.append(f"Padrão: {padrao_base} - Palpite: V{p1}V{p2} - {resultado}")
+            except Exception as e:
+                st.error(f"Erro na simulação: {e}")
+            break  # sair após encontrar uma repetição
 
-            if fichas_no_sorteado > 0:
-                premio = 36 * fichas_no_sorteado
-                ganho = premio
-                banca += ganho
-                resultado = f"✅ GREEN no Gale {j} ({sorteado}) - Ganhou R$ {premio}"
-                tentativa_realizada = True
-                break
-            else:
-                banca -= valor
-                resultado = f"❌ RED no Gale {j} ({sorteado}) - Perdeu R$ {valor}"
-                tentativa_realizada = True
-
-        if tentativa_realizada:
-            resultados_simulados.append(f"Padrão: {padrao} - Palpite: V{p1}V{p2} - {resultado}")
-
-# Exibir últimos 5 resultados
+# Mostrar resultados
 for r in resultados_simulados[-5:]:
     st.write(r)
 
