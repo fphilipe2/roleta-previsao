@@ -157,37 +157,36 @@ for i in range(len(historico) - 5):
         continue
 
     # Procurar nova ocorrência do padrão
-    for j in range(i+3, len(historico) - 2):
-        proximo_padrao = set(historico[j:j+3])
-        if padrao_base == proximo_padrao:
-    p1, p2 = historico[j], historico[j+1]
-    padroes_testados.add(tuple(sorted(padrao_base)))
-    try:
-        vizinhos_roleta = {
-            0: [32, 15, 19, 4, 21, 2, 25, 17, 34, 6],
-            1: [20, 14, 31, 9, 22, 18, 29, 7, 28, 12],
-            2: [21, 4, 19, 15, 32, 0, 26, 3, 35, 12],
-            3: [26, 0, 32, 15, 19, 4, 21, 2, 25, 17],
-            4: [19, 15, 32, 0, 26, 3, 35, 12, 28, 7],
-            5: [24, 16, 33, 1, 20, 14, 31, 9, 22, 18],
-            6: [27, 13, 36, 11, 30, 8, 23, 10, 5, 24],
-            7: [28, 12, 5, 24, 16, 33, 1, 20, 14, 31],
-            8: [30, 11, 5, 24, 16, 33, 1, 20, 14, 31],
-            9: [22, 18, 29, 7, 28, 12, 5, 24, 16, 33],
-            10: [23, 8, 30, 11, 5, 24, 16, 33, 1, 20],
-            11: [30, 8, 23, 10, 5, 24, 16, 33, 1, 20],
-            12: [28, 7, 29, 18, 22, 9, 31, 14, 20, 1]
-        }
+for j in range(i+3, len(historico) - 2):
+    proximo_padrao = set(historico[j:j+3])
+    if padrao_base == proximo_padrao:
+        p1, p2 = historico[j], historico[j+1]
+        padroes_testados.add(tuple(sorted(padrao_base)))
+        try:
+            vizinhos_roleta = {
+                0: [32, 15, 19, 4, 21, 2, 25, 17, 34, 6],
+                1: [20, 14, 31, 9, 22, 18, 29, 7, 28, 12],
+                2: [21, 4, 19, 15, 32, 0, 26, 3, 35, 12],
+                3: [26, 0, 32, 15, 19, 4, 21, 2, 25, 17],
+                4: [19, 15, 32, 0, 26, 3, 35, 12, 28, 7],
+                5: [24, 16, 33, 1, 20, 14, 31, 9, 22, 18],
+                6: [27, 13, 36, 11, 30, 8, 23, 10, 5, 24],
+                7: [28, 12, 5, 24, 16, 33, 1, 20, 14, 31],
+                8: [30, 11, 5, 24, 16, 33, 1, 20, 14, 31],
+                9: [22, 18, 29, 7, 28, 12, 5, 24, 16, 33],
+                10: [23, 8, 30, 11, 5, 24, 16, 33, 1, 20],
+                11: [30, 8, 23, 10, 5, 24, 16, 33, 1, 20],
+                12: [28, 7, 29, 18, 22, 9, 31, 14, 20, 1]
+            }
 
-        viz_p1 = vizinhos_roleta.get(p1, [])
-        viz_p2 = vizinhos_roleta.get(p2, [])
-        palpite = list(set(viz_p1 + viz_p2 + [p1, p2]))
+            viz_p1 = vizinhos_roleta.get(p1, [])
+            viz_p2 = vizinhos_roleta.get(p2, [])
+            palpite = list(set(viz_p1 + viz_p2 + [p1, p2]))
 
-        st.write(f"Padrão detectado: {set(padrao_base)}. V{p1}V{p2}: {sorted(palpite)}")
-
-    except Exception as e:
-        st.error(f"Erro ao gerar vizinhos: {e}")
-    break
+            st.write(f"Padrão detectado: {set(padrao_base)}. V{p1}V{p2}: {sorted(palpite)}")
+        except Exception as e:
+            st.error(f"Erro ao gerar vizinhos: {e}")
+        break
 
                 contagem_fichas = {}
                 for num in viz:
