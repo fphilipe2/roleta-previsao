@@ -96,7 +96,6 @@ with col1:
                         st.session_state.alternancia_dupla_seq.pop(0)
                     break
 
-with col2:
     # Exportar histórico com botão de download
 df_export = pd.DataFrame({'Número': st.session_state.historico})
 csv_export = df_export.to_csv(index=False).encode('utf-8')
