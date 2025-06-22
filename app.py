@@ -118,6 +118,9 @@ for i, col in zip(range(0, 37, 12), [col1, col2, col3]):
         for j in range(i, i + 12):
             resultados = ' '.join(por_numero[j])
             st.write(f"{j} = {resultados}")
+# Retorna os 5 vizinhos anteriores e 5 posteriores (com rotação de 0 a 36)
+def vizinhos(numero):
+    return [(numero + i) % 37 for i in range(-5, 6)]
 
 # Estratégia Reflexiva - sequência completa
 st.subheader("Resultados Reflexiva - sequência completa")
