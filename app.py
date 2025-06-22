@@ -65,6 +65,14 @@ col1, col2 = st.columns([1, 5])
 with col1:
     if st.button("Adicionar número"):
         st.session_state.historico.append(novo)
+        # Botão para remover o último número
+if st.button("⛔ Excluir último número"):
+    if st.session_state.historico:
+        removido = st.session_state.historico.pop()
+        st.warning(f"Número {removido} removido do histórico.")
+    else:
+        st.warning("O histórico está vazio.")
+
         # Reflexiva
         if len(st.session_state.historico) >= 2:
             ant = st.session_state.historico[-2]
