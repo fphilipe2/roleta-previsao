@@ -166,8 +166,8 @@ for i in range(len(historico) - 5):
             
             try:
                 vizinhos_roleta = {
-    0: [32, 15, 19, 4, 21, 2, 25, 17, 34, 6],
-    1: [20, 14, 31, 9, 22, 18, 29, 7, 28, 12],
+                    0: [32, 15, 19, 4, 21, 2, 25, 17, 34, 6],
+                    1: [20, 14, 31, 9, 22, 18, 29, 7, 28, 12],
     2: [21, 4, 19, 15, 32, 0, 26, 3, 35, 12],
     3: [26, 0, 32, 15, 19, 4, 21, 2, 25, 17],
     4: [19, 15, 32, 0, 26, 3, 35, 12, 28, 7],
@@ -205,11 +205,17 @@ for i in range(len(historico) - 5):
     36: [11, 30, 8, 23, 10, 5, 24, 16, 33, 1]
                 }
 
+                # Obter vizinhos de p1 e p2 conforme o dicionário
                 viz_p1 = vizinhos_roleta.get(p1, [])
                 viz_p2 = vizinhos_roleta.get(p2, [])
+                
+                # Combinar os vizinhos, mantendo apenas valores únicos
                 viz = list(set(viz_p1 + viz_p2 + [p1, p2]))
+                
+                # Ordenar a lista final
+                viz = sorted(viz)
 
-                st.write(f"Padrão detectado: {set(padrao_base)}. V{p1}V{p2}: {sorted(viz)}")
+                st.write(f"Padrão detectado: {set(padrao_base)}. V{p1}V{p2}: {viz}")
 
                 contagem_fichas = {}
                 for num in viz:
