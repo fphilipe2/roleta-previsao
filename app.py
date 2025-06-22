@@ -162,6 +162,7 @@ for i in range(len(historico) - 5):
         if padrao_base == proximo_padrao:
             p1, p2 = historico[j], historico[j+1]
             padroes_testados.add(tuple(sorted(padrao_base)))
+            
             try:
     vizinhos_roleta = {
         0: [32, 15, 19, 4, 21, 2, 25, 17, 34, 6],
@@ -184,6 +185,10 @@ for i in range(len(historico) - 5):
     palpite = list(set(viz_p1 + viz_p2 + [p1, p2]))
 
     st.write(f"Padrão detectado: {set(padrao)}. V{p1}V{p2}: {sorted(palpite)}")
+
+except Exception as e:
+    st.error(f"Erro ao gerar vizinhos: {e}")
+
 
 
 
