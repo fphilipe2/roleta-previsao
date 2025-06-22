@@ -35,7 +35,7 @@ def obter_alto_baixo(numero):
         return 'zero'
     return 'baixo' if numero <= 18 else 'alto'
 
-# Lista de números proibidos
+# Lista de números proibidos (mesmo conteúdo)
 numeros_proibidos = {
     1: [3, 7, 8, 11, 12, 13, 28, 29, 30, 35, 36],
     36: [1, 2, 4, 14, 15, 16, 19, 20, 21, 24, 33],
@@ -110,6 +110,7 @@ for i in range(1, len(st.session_state.historico)):
     else:
         resultado_reflexivo[i - 1] = "1"
         por_numero[ant].append("1")
+
     if len(por_numero[ant]) > 20:
         por_numero[ant].pop(0)
 
@@ -125,7 +126,7 @@ def mostrar_resultados(coluna, inicio, fim):
         for n in range(inicio, fim + 1):
             ultimos = por_numero[n] if por_numero[n] else []
             alert_style = ""
-            if ultimos[-2:] == ["X", "X"] or ultimos.count("X") >= 2 and len(ultimos) >= 3:
+            if ultimos[-2:] == ["X", "X"] or (ultimos.count("X") >= 2 and len(ultimos) >= 3):
                 alert_style = "background-color: #ffcccc; border: 2px solid red; padding: 4px;"
                 alarme_ativo = True
             st.markdown(f"<div style='{alert_style}'><strong>{n}</strong> = {' '.join(ultimos)}</div>", unsafe_allow_html=True)
@@ -134,8 +135,50 @@ mostrar_resultados(col1, 0, 11)
 mostrar_resultados(col2, 12, 24)
 mostrar_resultados(col3, 25, 36)
 
-# Estratégia de 3 números (em qualquer ordem)
-st.subheader("Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)")
+# Estratégia de Alternância Dupla (Dúzia e Coluna) por grupos fixos
+st.subheader("Resultados Estratégia de Alternância Dupla (Dúzia e Coluna)")
+grupos_dupla = [
+    [1, 4, 7, 10],
+    [2, 5, 8, 11],
+    [3, 6, 9, 12],
+    [13, 16, 19, 22],
+    [14, 17, 20, 23],
+    [15, 18, 21, 24],
+    [25, 28, 31, 34],
+    [26, 29, 32, 35],
+    [27, 30, 33, 36]
+]
+
+alternancia_resultados = []
+
+for i in range(1, len(st.session_state.historico)):
+    ant = st.session_state.historico[i - 1]
+    atual = st.session_state.historico[i]
+    grupo_atual = next((g for g in grupos_dupla if ant in g), None)
+    if grupo_atual:
+        resultado = "1" if atual in grupo_atual else "X"
+        alternancia_resultados.append(resultado)
+        if len(alternancia_resultados) > 250:
+            alternancia_resultados.pop(0)
+
+# Mostrar alternância com quebras de linha a cada 50
+res_dupla = ""
+seq = ""
+for i, val in enumerate(alternancia_resultados):
+    if val == "1":
+        seq += str((int(seq[-1]) + 1) if seq and seq[-1].isdigit() else "1")
+    else:
+        res_dupla += f"<span style='color:red'>X</span>"
+        seq = ""
+    if len(seq) > 0:
+        res_dupla += seq
+    if (i + 1) % 50 == 0:
+        res_dupla += "<br>"
+
+st.markdown(f"<div style='font-family:monospace'>{res_dupla}</div>", unsafe_allow_html=True)
+
+# Estratégia de Padrão de 3 números
+st.subheader("Padrão de 3 números detectados")
 if len(st.session_state.historico) >= 5:
     ultimos = set(st.session_state.historico[-3:])
     for i in range(len(st.session_state.historico) - 5):
@@ -144,5 +187,6 @@ if len(st.session_state.historico) >= 5:
             p1 = st.session_state.historico[i+3]
             p2 = st.session_state.historico[i+4]
             viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
-            st.write(f"Palpite: V{p1}V{p2} => {viz}")
+            st.info(f"Padrão detectado: Jogar nos vizinhos de {p1} e {p2}: {viz}")
             break
+
