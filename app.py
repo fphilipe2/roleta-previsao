@@ -97,10 +97,17 @@ with col1:
                     break
 
 with col2:
-    if st.button("Exportar histórico CSV"):
-        df = pd.DataFrame({'Número': st.session_state.historico})
-        df.to_csv("historico_atualizado.csv", index=False)
-        st.success("Histórico exportado com sucesso!")
+    # Exportar histórico com botão de download
+df_export = pd.DataFrame({'Número': st.session_state.historico})
+csv_export = df_export.to_csv(index=False).encode('utf-8')
+
+st.download_button(
+    label="📥 Exportar histórico CSV",
+    data=csv_export,
+    file_name='historico_atualizado.csv',
+    mime='text/csv',
+)
+
 
 # Resultados por número (Reflexiva)
 st.subheader("Resultados por Número (Reflexiva)")
