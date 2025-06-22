@@ -205,20 +205,29 @@ for i in range(len(historico) - 5):
     36: [13, 27, 6, 34, 17, 11, 30, 8, 23, 10]
 }
 
-                # Obter vizinhos de p1 e p2 conforme o dicionário
-                viz_p1 = vizinhos_roleta.get(p1, [])
-                viz_p2 = vizinhos_roleta.get(p2, [])
-                
-                # Combinar os vizinhos, mantendo apenas valores únicos
-                viz = list(set(viz_p1 + viz_p2 + [p1, p2]))
-                
-                # Ordenar a lista final
-                viz = sorted(viz)
+               def obter_vizinhos_reais(numero):
+    """Retorna o número + seus vizinhos físicos na mesa"""
+    return [numero] + vizinhos_fisicos.get(numero, [])
 
+for i in range(len(historico) - 5):
+    padrao_base = set(historico[i:i+3])
+    if len(padrao_base) < 3 or tuple(sorted(padrao_base)) in padroes_testados:
+        continue
+
+    for j in range(i+3, len(historico) - 2):
+        proximo_padrao = set(historico[j:j+3])
+        if padrao_base == proximo_padrao:
+            p1, p2 = historico[j], historico[j+1]
+            padroes_testados.add(tuple(sorted(padrao_base)))
+            
+            try:
+                numeros_aposta = obter_vizinhos_reais(p1) + obter_vizinhos_reais(p2)
+                viz = sorted(list(set(numeros_aposta)))
+                
                 st.write(f"Padrão detectado: {set(padrao_base)}. V{p1}V{p2}: {viz}")
 
                 contagem_fichas = {}
-                for num in viz:
+                for num in numeros_aposta:
                     contagem_fichas[num] = contagem_fichas.get(num, 0) + 1
 
                 resultado = ""
