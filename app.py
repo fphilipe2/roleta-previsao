@@ -176,8 +176,7 @@ for i in range(len(historico) - 5):
         9: [22, 18, 29, 7, 28, 12, 5, 24, 16, 33],
         10: [23, 8, 30, 11, 5, 24, 16, 33, 1, 20],
         11: [30, 8, 23, 10, 5, 24, 16, 33, 1, 20],
-        12: [28, 7, 29, 18, 22, 9, 31, 14, 20, 1],
-        # adicione mais se desejar
+        12: [28, 7, 29, 18, 22, 9, 31, 14, 20, 1]
     }
 
     viz_p1 = vizinhos_roleta.get(p1, [])
@@ -185,6 +184,7 @@ for i in range(len(historico) - 5):
     palpite = list(set(viz_p1 + viz_p2 + [p1, p2]))
 
     st.write(f"Padrão detectado: {set(padrao)}. V{p1}V{p2}: {sorted(palpite)}")
+
 
 
                 contagem_fichas = {}
