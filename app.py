@@ -189,9 +189,6 @@ for i in range(len(historico) - 5):
         st.error(f"Erro ao gerar vizinhos: {e}")
     break
 
-
-
-
                 contagem_fichas = {}
                 for num in viz:
                     contagem_fichas[num] = contagem_fichas.get(num, 0) + 1
