@@ -163,30 +163,29 @@ for i in range(len(historico) - 5):
             p1, p2 = historico[j], historico[j+1]
             padroes_testados.add(tuple(sorted(padrao_base)))
             try:
-                # Define vizinhos reais da roleta para cada número
-vizinhos_roleta = {
-    0: [32, 15, 19, 4, 21, 2, 25, 17, 34, 6],
-    1: [20, 14, 31, 9, 22, 18, 29, 7, 28, 12],
-    2: [21, 4, 19, 15, 32, 0, 26, 3, 35, 12],
-    3: [26, 0, 32, 15, 19, 4, 21, 2, 25, 17],
-    4: [19, 15, 32, 0, 26, 3, 35, 12, 28, 7],
-    5: [24, 16, 33, 1, 20, 14, 31, 9, 22, 18],
-    6: [27, 13, 36, 11, 30, 8, 23, 10, 5, 24],
-    7: [28, 12, 5, 24, 16, 33, 1, 20, 14, 31],
-    8: [30, 11, 5, 24, 16, 33, 1, 20, 14, 31],
-    9: [22, 18, 29, 7, 28, 12, 5, 24, 16, 33],
-    10: [23, 8, 30, 11, 5, 24, 16, 33, 1, 20],
-    11: [30, 8, 23, 10, 5, 24, 16, 33, 1, 20],
-    12: [28, 7, 29, 18, 22, 9, 31, 14, 20, 1],
-    # continue para os outros conforme o modelo ou generalize com função
-}
+    vizinhos_roleta = {
+        0: [32, 15, 19, 4, 21, 2, 25, 17, 34, 6],
+        1: [20, 14, 31, 9, 22, 18, 29, 7, 28, 12],
+        2: [21, 4, 19, 15, 32, 0, 26, 3, 35, 12],
+        3: [26, 0, 32, 15, 19, 4, 21, 2, 25, 17],
+        4: [19, 15, 32, 0, 26, 3, 35, 12, 28, 7],
+        5: [24, 16, 33, 1, 20, 14, 31, 9, 22, 18],
+        6: [27, 13, 36, 11, 30, 8, 23, 10, 5, 24],
+        7: [28, 12, 5, 24, 16, 33, 1, 20, 14, 31],
+        8: [30, 11, 5, 24, 16, 33, 1, 20, 14, 31],
+        9: [22, 18, 29, 7, 28, 12, 5, 24, 16, 33],
+        10: [23, 8, 30, 11, 5, 24, 16, 33, 1, 20],
+        11: [30, 8, 23, 10, 5, 24, 16, 33, 1, 20],
+        12: [28, 7, 29, 18, 22, 9, 31, 14, 20, 1],
+        # adicione mais se desejar
+    }
 
-# Usa vizinhos reais da roleta para p1 e p2
-viz_p1 = vizinhos_roleta.get(p1, [])
-viz_p2 = vizinhos_roleta.get(p2, [])
+    viz_p1 = vizinhos_roleta.get(p1, [])
+    viz_p2 = vizinhos_roleta.get(p2, [])
+    palpite = list(set(viz_p1 + viz_p2 + [p1, p2]))
 
-# Inclui os próprios números como centrais com prioridade (2 fichas)
-palpite = list(set(viz_p1 + viz_p2 + [p1, p2]))
+    st.write(f"Padrão detectado: {set(padrao)}. V{p1}V{p2}: {sorted(palpite)}")
+
 
                 contagem_fichas = {}
                 for num in viz:
