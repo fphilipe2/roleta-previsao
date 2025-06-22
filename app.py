@@ -148,7 +148,7 @@ def formatar_estrategia(seq):
     return '<br>'.join(linhas)
 st.markdown(formatar_estrategia(st.session_state.alternancia_dupla_seq), unsafe_allow_html=True)
 
-# Estratégia Padrão de 3 Números (ordem qualquer)
+# Estratégia de 3 números (em qualquer ordem)
 st.subheader("Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)")
 if len(st.session_state.historico) >= 5:
     ultimos = set(st.session_state.historico[-3:])
@@ -157,6 +157,6 @@ if len(st.session_state.historico) >= 5:
         if seq == ultimos:
             p1 = st.session_state.historico[i+3]
             p2 = st.session_state.historico[i+4]
-            viz = sorted(set([(p1 + d)%37 for d in range(-5,6)] + [(p2 + d)%37 for d in range(-5,6)]))
-            st.info(f"Padrão detectado: {seq}. Viz: {viz}")
+            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
+            st.write(f"Padrão detectado: {seq}. V{p1}V{p2}: {viz}")
             break
