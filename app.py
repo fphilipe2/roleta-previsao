@@ -64,7 +64,39 @@ novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step
 col1, col2 = st.columns([1, 5])
 with col1:
     if st.button("Adicionar número"):
-        st.session_state.historico.append(novo)
+    st.session_state.historico.append(novo)
+
+    # Atualizar Reflexiva
+    if len(st.session_state.historico) >= 2:
+        ant = st.session_state.historico[-2]
+        atual = st.session_state.historico[-1]
+        if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
+            res = 'X'
+        else:
+            res = '1'
+        st.session_state.reflexiva_seq.append(res)
+        if len(st.session_state.reflexiva_seq) > 250:
+            st.session_state.reflexiva_seq.pop(0)
+
+    # Atualizar Alternância Dupla por grupo
+    grupos = [
+        [1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12],
+        [13, 16, 19, 22], [14, 17, 20, 23], [15, 18, 21, 24],
+        [25, 28, 31, 34], [26, 29, 32, 35], [27, 30, 33, 36]
+    ]
+    if len(st.session_state.historico) >= 2:
+        ant = st.session_state.historico[-2]
+        atual = st.session_state.historico[-1]
+        for grupo in grupos:
+            if ant in grupo:
+                if atual in grupo:
+                    st.session_state.alternancia_dupla_seq.append('1')
+                else:
+                    st.session_state.alternancia_dupla_seq.append('X')
+                if len(st.session_state.alternancia_dupla_seq) > 250:
+                    st.session_state.alternancia_dupla_seq.pop(0)
+                break
+
         # Botão para remover o último número
 if st.button("⛔ Excluir último número"):
     if st.session_state.historico:
