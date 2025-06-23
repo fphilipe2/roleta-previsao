@@ -76,13 +76,12 @@ if 'alternancia_dupla_seq' not in st.session_state:
 
 # Função para atualizar todas as estratégias
 def atualizar_estrategias():
-    # Estratégia Reflexiva
-# Estratégia Reflexiva (única verificação)
+    # Estratégia Reflexiva (VERIFICAÇÃO ÚNICA)
     if len(st.session_state.historico) >= 2:
         ant = st.session_state.historico[-2]
         atual = st.session_state.historico[-1]
         
-        # Verificação única (não duplicada)
+        # Única verificação necessária
         if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
             st.session_state.reflexiva_seq.append('X')
         else:
