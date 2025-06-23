@@ -98,12 +98,15 @@ def atualizar_estrategias():
         atual = st.session_state.historico[-1]
         
         if ant == 0:
-            st.session_state.alternancia_dupla_seq.append('X')
+            resultado = 'X'
         else:
             grupos_ant = numero_para_grupos[ant]
             grupos_atual = numero_para_grupos[atual]
-            compartilha_grupo = any(grupo in grupos_atual for grupo in grupos_ant)
-            st.session_state.alternancia_dupla_seq.append('1' if compartilha_grupo else 'X')
+            
+            # Verifica se acertou em QUALQUER grupo (Dúzia OU Coluna)
+            resultado = '1' if any(grupo in grupos_atual for grupo in grupos_ant) else 'X'
+        
+        st.session_state.alternancia_dupla_seq.append(resultado)
         
         if len(st.session_state.alternancia_dupla_seq) > 250:
             st.session_state.alternancia_dupla_seq.pop(0)
