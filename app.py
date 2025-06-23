@@ -94,10 +94,6 @@ def atualizar_estrategias():
     if len(st.session_state.historico) >= 2:
         ant = st.session_state.historico[-2]
         atual = st.session_state.historico[-1]
-        res = 'X' if (ant in numeros_proibidos and atual in numeros_proibidos[ant]) else '1'
-        st.session_state.reflexiva_seq.append(res)
-        if len(st.session_state.reflexiva_seq) > 250:
-            st.session_state.reflexiva_seq.pop(0)
 
     # Estratégia Alternância Dupla - VERSAO CORRIGIDA (único resultado)
     if len(st.session_state.historico) >= 2:
