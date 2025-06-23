@@ -112,9 +112,7 @@ def atualizar_estrategias():
         
         if len(st.session_state.alternancia_dupla_seq) > 250:
             st.session_state.alternancia_dupla_seq.pop(0)
-
-
-                break
+            break
 
 # Funções de formatação
 def formatar_reflexiva(seq):
