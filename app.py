@@ -113,16 +113,7 @@ def atualizar_estrategias():
         if len(st.session_state.alternancia_dupla_seq) > 250:
             st.session_state.alternancia_dupla_seq.pop(0)
 
-    # Estratégia Alternância Dupla
-    if len(st.session_state.historico) >= 2:
-        ant = st.session_state.historico[-2]
-        atual = st.session_state.historico[-1]
-        for grupo in grupos:
-            if ant in grupo:
-                res = '1' if atual in grupo else 'X'
-                st.session_state.alternancia_dupla_seq.append(res)
-                if len(st.session_state.alternancia_dupla_seq) > 250:
-                    st.session_state.alternancia_dupla_seq.pop(0)
+
                 break
 
 # Funções de formatação
