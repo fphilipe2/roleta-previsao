@@ -108,6 +108,20 @@ if len(st.session_state.historico) >= 2:
             if len(st.session_state.alternancia_dupla_seq) > 250:
                 st.session_state.alternancia_dupla_seq.pop(0))
             break
+# Estratégia Alternância Dupla - Dúzia e Coluna
+st.subheader("Resultados Estratégia de Alternância Dupla (Dúzia e Coluna)")
+
+def formatar_alternancia(seq):
+    res = []
+    for val in seq:
+        if val == 'X':
+            res.append('<span style="color:red">X</span>')
+        else:
+            res.append(val)
+    linhas = [''.join(res[i:i+50]) for i in range(0, len(res), 50)]
+    return '<br>'.join(linhas)
+
+st.markdown(formatar_alternancia(st.session_state.alternancia_dupla_seq), unsafe_allow_html=True)
 
     # Exportar histórico com botão de download
 df_export = pd.DataFrame({'Número': st.session_state.historico})
