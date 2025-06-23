@@ -53,11 +53,13 @@ colunas = {
 }
 
 numero_para_grupos = {}
-for num in range(37):
+for num in range(37):  # 0-36
     grupos_num = []
+    # Verifica dúzia
     for d, nums in duzias.items():
         if num in nums:
             grupos_num.append(d)
+    # Verifica coluna
     for c, nums in colunas.items():
         if num in nums:
             grupos_num.append(c)
