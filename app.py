@@ -73,7 +73,7 @@ if st.button("⛔ Excluir último número"):
     else:
         st.warning("O histórico está vazio.")
 
-       # Reflexiva
+# Estratégia Reflexiva - resultado baseado nos números proibidos
 if len(st.session_state.historico) >= 2:
     ant = st.session_state.historico[-2]
     atual = st.session_state.historico[-1]
@@ -85,23 +85,28 @@ if len(st.session_state.historico) >= 2:
     if len(st.session_state.reflexiva_seq) > 250:
         st.session_state.reflexiva_seq.pop(0)
 
-# Alternância Dupla por grupo
+# Estratégia Alternância Dupla (Dúzia e Coluna) com grupos fixos
 grupos = [
     [1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12],
     [13, 16, 19, 22], [14, 17, 20, 23], [15, 18, 21, 24],
     [25, 28, 31, 34], [26, 29, 32, 35], [27, 30, 33, 36]
 ]
+
 if len(st.session_state.historico) >= 2:
     ant = st.session_state.historico[-2]
     atual = st.session_state.historico[-1]
-    for grupo in grupos:
-        if ant in grupo:
-            if atual in grupo:
+    if ant == 0:
+        pass  # ignora o 0 como referência
+    else:
+        grupo_ant = next((g for g in grupos if ant in g), None)
+        grupo_atual = next((g for g in grupos if atual in g), None)
+        if grupo_ant and grupo_atual:
+            if grupo_atual == grupo_ant:
                 st.session_state.alternancia_dupla_seq.append('1')
             else:
                 st.session_state.alternancia_dupla_seq.append('X')
             if len(st.session_state.alternancia_dupla_seq) > 250:
-                st.session_state.alternancia_dupla_seq.pop(0)
+                st.session_state.alternancia_dupla_seq.pop(0))
             break
 
     # Exportar histórico com botão de download
@@ -137,12 +142,13 @@ def vizinhos(numero):
     return [(numero + i) % 37 for i in range(-5, 6)]
 
 
-# Estratégia Reflexiva - sequência completa
+# Estratégia Reflexiva - sequência formatada
 st.subheader("Resultados Reflexiva - sequência completa")
+
 def formatar_reflexiva(seq):
     res = []
     cont = 1
-    for i, val in enumerate(seq):
+    for val in seq:
         if val == 'X':
             res.append('<span style="color:red">X</span>')
             cont = 1
@@ -151,20 +157,9 @@ def formatar_reflexiva(seq):
             cont += 1
     linhas = [''.join(res[i:i+50]) for i in range(0, len(res), 50)]
     return '<br>'.join(linhas)
+
 st.markdown(formatar_reflexiva(st.session_state.reflexiva_seq), unsafe_allow_html=True)
 
-# Estratégia Alternância Dupla - Dúzia e Coluna
-st.subheader("Resultados Estratégia de Alternância Dupla (Dúzia e Coluna)")
-def formatar_estrategia(seq):
-    res = []
-    for v in seq:
-        if v == 'X':
-            res.append('<span style="color:red">X</span>')
-        else:
-            res.append(v)
-    linhas = [''.join(res[i:i+50]) for i in range(0, len(res), 50)]
-    return '<br>'.join(linhas)
-st.markdown(formatar_estrategia(st.session_state.alternancia_dupla_seq), unsafe_allow_html=True)
 
 # Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)
 st.subheader("Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)")
