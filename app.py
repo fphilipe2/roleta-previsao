@@ -102,7 +102,7 @@ if len(st.session_state.historico) >= 2:
                 st.session_state.alternancia_dupla_seq.append('X')
             if len(st.session_state.alternancia_dupla_seq) > 250:
                 st.session_state.alternancia_dupla_seq.pop(0)
-            brea
+            break
 
     # Exportar histórico com botão de download
 df_export = pd.DataFrame({'Número': st.session_state.historico})
