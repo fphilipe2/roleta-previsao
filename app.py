@@ -178,10 +178,6 @@ for i, col in zip(range(0, 37, 12), [col1, col2, col3]):
         for j in range(i, i + 12):
             st.write(f"{j} = {' '.join(por_numero[j])}")
 
-# Estratégia Reflexiva
-st.subheader("Resultados Reflexiva - sequência completa")
-st.markdown(formatar_reflexiva(st.session_state.reflexiva_seq), unsafe_allow_html=True)
-
 # Estratégia Alternância Dupla
 st.subheader("Resultados Estratégia de Alternância Dupla")
 st.markdown(formatar_alternancia(st.session_state.alternancia_dupla_seq), unsafe_allow_html=True)
