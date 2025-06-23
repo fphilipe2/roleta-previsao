@@ -231,13 +231,29 @@ st.markdown(''.join([
 ]), unsafe_allow_html=True)
 
 # ========== NOVAS ESTRATÉGIAS ==========
-# Estratégia 2DZ
+# Estratégia 2DZ (Dúzias)
 st.subheader("Estratégia 2DZ (2 Últimas Dúzias + Zero)")
-st.markdown(''.join(st.session_state.estrategia_2dz_seq[-100:]), unsafe_allow_html=True)
+resultados_formatados = []
+for item in st.session_state.estrategia_2dz_seq[-100:]:
+    if item == '0':
+        resultados_formatados.append('<span style="color:green">0</span>')
+    elif item == 'X':
+        resultados_formatados.append('<span style="color:red">X</span>')
+    else:
+        resultados_formatados.append(item)
+st.markdown(''.join(resultados_formatados), unsafe_allow_html=True)
 
-# Estratégia 2CL
+# Estratégia 2CL (Colunas)
 st.subheader("Estratégia 2CL (2 Últimas Colunas + Zero)")
-st.markdown(''.join(st.session_state.estrategia_2cl_seq[-100:]), unsafe_allow_html=True)
+resultados_formatados = []
+for item in st.session_state.estrategia_2cl_seq[-100:]:
+    if item == '0':
+        resultados_formatados.append('<span style="color:green">0</span>')
+    elif item == 'X':
+        resultados_formatados.append('<span style="color:red">X</span>')
+    else:
+        resultados_formatados.append(item)
+st.markdown(''.join(resultados_formatados), unsafe_allow_html=True)
 
 # Estratégia Padrão de 3 Números (mantida original)
 def vizinhos(numero):
