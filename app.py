@@ -74,13 +74,6 @@ if 'reflexiva_seq' not in st.session_state:
 if 'alternancia_dupla_seq' not in st.session_state:
     st.session_state.alternancia_dupla_seq = []
 
-# Grupos para estratégia de alternância
-grupos = [
-    [1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12],
-    [13, 16, 19, 22], [14, 17, 20, 23], [15, 18, 21, 24],
-    [25, 28, 31, 34], [26, 29, 32, 35], [27, 30, 33, 36]
-]
-
 # Função para atualizar todas as estratégias
 def atualizar_estrategias():
     # Estratégia Reflexiva
@@ -96,16 +89,25 @@ def atualizar_estrategias():
     if len(st.session_state.historico) >= 2:
         ant = st.session_state.historico[-2]
         atual = st.session_state.historico[-1]
+        res = 'X' if (ant in numeros_proibidos and atual in numeros_proibidos[ant]) else '1'
+        st.session_state.reflexiva_seq.append(res)
+        if len(st.session_state.reflexiva_seq) > 250:
+            st.session_state.reflexiva_seq.pop(0)
+
+    # Estratégia Alternância Dupla - VERSAO CORRIGIDA (único resultado)
+    if len(st.session_state.historico) >= 2:
+        ant = st.session_state.historico[-2]
+        atual = st.session_state.historico[-1]
         
         if ant == 0:
             resultado = 'X'
         else:
+            # Verifica APENAS UMA VEZ se compartilham QUALQUER grupo
             grupos_ant = numero_para_grupos[ant]
             grupos_atual = numero_para_grupos[atual]
-            
-            # Verifica se acertou em QUALQUER grupo (Dúzia OU Coluna)
             resultado = '1' if any(grupo in grupos_atual for grupo in grupos_ant) else 'X'
         
+        # Adiciona APENAS UM RESULTADO à sequência
         st.session_state.alternancia_dupla_seq.append(resultado)
         
         if len(st.session_state.alternancia_dupla_seq) > 250:
