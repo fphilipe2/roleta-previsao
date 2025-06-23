@@ -95,18 +95,14 @@ grupos = [
 if len(st.session_state.historico) >= 2:
     ant = st.session_state.historico[-2]
     atual = st.session_state.historico[-1]
-    if ant == 0:
-        pass  # ignora o 0 como referência
-    else:
-        grupo_ant = next((g for g in grupos if ant in g), None)
-        grupo_atual = next((g for g in grupos if atual in g), None)
-        if grupo_ant and grupo_atual:
-            if grupo_atual == grupo_ant:
+    for grupo in grupos:
+        if ant in grupo:
+            if atual in grupo:
                 st.session_state.alternancia_dupla_seq.append('1')
             else:
                 st.session_state.alternancia_dupla_seq.append('X')
             if len(st.session_state.alternancia_dupla_seq) > 250:
-                st.session_state.alternancia_dupla_seq.pop(0))
+                st.session_state.alternancia_dupla_seq.pop(0)  # Corrigido aqui
             break
 # Estratégia Alternância Dupla - Dúzia e Coluna
 st.subheader("Resultados Estratégia de Alternância Dupla (Dúzia e Coluna)")
