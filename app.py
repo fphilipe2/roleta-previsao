@@ -97,6 +97,7 @@ with col1:
                     st.session_state.alternancia_dupla_seq.pop(0)
                 break
 
+
         # Botão para remover o último número
 if st.button("⛔ Excluir último número"):
     if st.session_state.historico:
