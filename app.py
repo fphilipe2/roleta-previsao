@@ -40,8 +40,7 @@ numeros_proibidos = {
     31: [0, 3, 5, 8, 10, 11, 12, 23, 26, 30, 35],
     34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
 }
-# ===== NOVO CÓDIGO - DEFININDO DÚZIAS E COLUNAS =====
-duzias = {
+uzias = {
     'D1': list(range(1, 13)),
     'D2': list(range(13, 25)),
     'D3': list(range(25, 37))
@@ -53,9 +52,8 @@ colunas = {
     'C3': [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36]
 }
 
-# Mapeamento de números para grupos (Dúzia + Coluna)
 numero_para_grupos = {}
-for num in range(37):  # 0-36
+for num in range(37):
     grupos_num = []
     for d, nums in duzias.items():
         if num in nums:
@@ -64,7 +62,6 @@ for num in range(37):  # 0-36
         if num in nums:
             grupos_num.append(c)
     numero_para_grupos[num] = grupos_num
-# ===== FIM DA PRIMEIRA PARTE =====
 st.set_page_config(page_title="Bot de Estratégias para Roleta", layout="wide")
 
 # Inicialização do session state
@@ -74,6 +71,13 @@ if 'reflexiva_seq' not in st.session_state:
     st.session_state.reflexiva_seq = []
 if 'alternancia_dupla_seq' not in st.session_state:
     st.session_state.alternancia_dupla_seq = []
+
+# Grupos para estratégia de alternância
+grupos = [
+    [1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12],
+    [13, 16, 19, 22], [14, 17, 20, 23], [15, 18, 21, 24],
+    [25, 28, 31, 34], [26, 29, 32, 35], [27, 30, 33, 36]
+]
 
 # Função para atualizar todas as estratégias
 def atualizar_estrategias():
@@ -86,34 +90,32 @@ def atualizar_estrategias():
         if len(st.session_state.reflexiva_seq) > 250:
             st.session_state.reflexiva_seq.pop(0)
 
-    # Estratégia Alternância Dupla
-    def atualizar_estrategias():
-    # Estratégia Reflexiva (mantida igual)
-    if len(st.session_state.historico) >= 2:
-        ant = st.session_state.historico[-2]
-        atual = st.session_state.historico[-1]
-        res = 'X' if (ant in numeros_proibidos and atual in numeros_proibidos[ant]) else '1'
-        st.session_state.reflexiva_seq.append(res)
-        if len(st.session_state.reflexiva_seq) > 250:
-            st.session_state.reflexiva_seq.pop(0)
-
-    # ===== NOVA LÓGICA PARA ALTERNÂNCIA DUPLA =====
+    # Estratégia Alternância Dupla Modificada
     if len(st.session_state.historico) >= 2:
         ant = st.session_state.historico[-2]
         atual = st.session_state.historico[-1]
         
-        if ant == 0:  # Regra para zero
+        if ant == 0:
             st.session_state.alternancia_dupla_seq.append('X')
         else:
             grupos_ant = numero_para_grupos[ant]
             grupos_atual = numero_para_grupos[atual]
-            # Verifica se compartilham Dúzia OU Coluna
-            resultado = '1' if any(grupo in grupos_atual for grupo in grupos_ant) else 'X'
-            st.session_state.alternancia_dupla_seq.append(resultado)
+            compartilha_grupo = any(grupo in grupos_atual for grupo in grupos_ant)
+            st.session_state.alternancia_dupla_seq.append('1' if compartilha_grupo else 'X')
         
         if len(st.session_state.alternancia_dupla_seq) > 250:
             st.session_state.alternancia_dupla_seq.pop(0)
-    # ===== FIM DA SEGUNDA PARTE =====
+
+    # Estratégia Alternância Dupla
+    if len(st.session_state.historico) >= 2:
+        ant = st.session_state.historico[-2]
+        atual = st.session_state.historico[-1]
+        for grupo in grupos:
+            if ant in grupo:
+                res = '1' if atual in grupo else 'X'
+                st.session_state.alternancia_dupla_seq.append(res)
+                if len(st.session_state.alternancia_dupla_seq) > 250:
+                    st.session_state.alternancia_dupla_seq.pop(0)
                 break
 
 # Funções de formatação
