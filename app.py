@@ -187,49 +187,7 @@ if len(st.session_state.historico) >= 5:
                 except Exception as e:
                     st.error(f"Erro ao gerar vizinhos: {e}")
             break
-            # Estratégia: Padrão de 3 Números (Repetição em qualquer ordem) - SIMULAÇÃO DE BANCA
-st.subheader("Simulação de Banca - Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)")
 
-banca_inicial = 600
-banca = banca_inicial
-gales = [22, 44, 132, 396]
-tentativas = 0
-resultado = ""
-ganho = 0
-
-# Se houver palpite armazenado, simula a entrada
-if 'padrao_3n_palpite' in st.session_state:
-    alvo = st.session_state.padrao_3n_palpite  # lista com os 22 números
-    jogadas = st.session_state.historico[-(len(gales)+1):]  # pega últimas jogadas
-
-    for i, entrada in enumerate(gales):
-        if len(jogadas) <= i:
-            break  # ainda não houve essa jogada
-
-        numero_sorteado = jogadas[-(len(gales) - i)]
-
-        # Contar quantas fichas cada número recebeu
-        contagem_fichas = {}
-        for num in alvo:
-            contagem_fichas[num] = contagem_fichas.get(num, 0) + entrada // 22
-
-        fichas_no_sorteado = contagem_fichas.get(numero_sorteado, 0)
-        if fichas_no_sorteado > 0:
-            premio = 36 * fichas_no_sorteado
-            ganho = premio
-            resultado = f"🎯 GREEN no Gale {i} (nº {numero_sorteado}) com {fichas_no_sorteado} ficha(s)"
-            break
-        else:
-            banca -= entrada
-            resultado = f"❌ RED no Gale {i} (nº {numero_sorteado})"
-
-    # Se houve ganho, computar saldo
-    if ganho:
-        banca += ganho
-
-    st.markdown(f"**Resultado:** {resultado}")
-    st.markdown(f"**Banca Atual:** R$ {banca:.2f}")
-    st.markdown(f"**Ganho Líquido:** R$ {banca - banca_inicial:.2f}")
 
 
 
