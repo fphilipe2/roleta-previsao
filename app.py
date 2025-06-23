@@ -324,40 +324,69 @@ st.subheader("Simulação de Banca - Estratégia: Padrão de 3 Números (Repeti�
 banca_inicial = 600
 banca = banca_inicial
 gales = [22, 44, 132, 396]
-tentativas = 0
-resultado = ""
-ganho = 0
+resultados_simulados = []
+padroes_testados = set()
 
-# Se houver palpite armazenado, simula a entrada
-if 'padrao_3n_palpite' in st.session_state:
-    alvo = st.session_state.padrao_3n_palpite  # lista com os 22 números
-    jogadas = st.session_state.historico[-(len(gales)+1):]  # pega últimas jogadas
+# Função auxiliar para calcular contagem de fichas
+def contar_fichas(numeros, total_fichas):
+    contagem = {}
+    for n in numeros:
+        contagem[n] = contagem.get(n, 0) + total_fichas // len(numeros)
+    return contagem
 
-    for i, entrada in enumerate(gales):
-        if len(jogadas) <= i:
-            break  # ainda não houve essa jogada
+# Simulação com base no histórico
+for i in range(len(historico) - 7):
+    padrao = historico[i:i+3]
+    if len(set(padrao)) < 3:
+        continue
 
-        numero_sorteado = jogadas[-(len(gales) - i)]
+    for j in range(i+3, len(historico) - 5):
+        if set(historico[j:j+3]) == set(padrao) and tuple(sorted(padrao)) not in padroes_testados:
+            p1, p2 = historico[j+3], historico[j+4]
 
-        # Contar quantas fichas cada número recebeu
-        contagem_fichas = {}
-        for num in alvo:
-            contagem_fichas[num] = contagem_fichas.get(num, 0) + entrada // 22
+            # Obter vizinhos reais (usando mapa de 11 vizinhos reais se possível)
+            viz1 = vizinhos(p1)
+            viz2 = vizinhos(p2)
+            palpite = sorted(set(viz1 + viz2 + [p1, p2]))
 
-        fichas_no_sorteado = contagem_fichas.get(numero_sorteado, 0)
-        if fichas_no_sorteado > 0:
-            premio = 36 * fichas_no_sorteado
-            ganho = premio
-            resultado = f"🎯 GREEN no Gale {i} (nº {numero_sorteado}) com {fichas_no_sorteado} ficha(s)"
-            break
-        else:
-            banca -= entrada
-            resultado = f"❌ RED no Gale {i} (nº {numero_sorteado})"
+            padroes_testados.add(tuple(sorted(padrao)))
+            st.write(f"Padrão detectado: {set(padrao)}. V{p1}V{p2}: {palpite}")
 
-    # Se houve ganho, computar saldo
-    if ganho:
-        banca += ganho
+            resultado = ""
+            tentativa_realizada = False
+            contagem = {}
 
-    st.markdown(f"**Resultado:** {resultado}")
-    st.markdown(f"**Banca Atual:** R$ {banca:.2f}")
-    st.markdown(f"**Ganho Líquido:** R$ {banca - banca_inicial:.2f}")
+            for gale_index, entrada in enumerate(gales):
+                idx_sorteio = j + 5 + gale_index
+                if idx_sorteio >= len(historico):
+                    break
+
+                sorteado = historico[idx_sorteio]
+                contagem = contar_fichas(palpite, entrada)
+                fichas_sorteado = contagem.get(sorteado, 0)
+
+                if fichas_sorteado > 0:
+                    premio = fichas_sorteado * 36
+                    custo = sum(gales[:gale_index + 1])
+                    saldo = premio - custo
+                    banca += saldo
+                    resultado = f"✅ GREEN no Gale {gale_index} (nº {sorteado}) - Fichas: {fichas_sorteado} - Saldo: R$ {saldo}"
+                    tentativa_realizada = True
+                    break
+                else:
+                    banca -= entrada
+
+            if not tentativa_realizada:
+                resultado = f"❌ RED - Perdeu R$ {sum(gales)}"
+
+            resultados_simulados.append(f"Padrão: {set(padrao)} - Palpite: V{p1}V{p2} - {resultado}")
+            break  # vai para o próximo padrão base
+
+
+    for r in resultados_simulados[-5:]:
+    st.write(r)
+
+st.markdown(f"**Banca Inicial:** R$ {banca_inicial}")
+st.markdown(f"**Banca Final:** R$ {banca:.2f}")
+st.markdown(f"**Lucro/Prejuízo:** R$ {banca - banca_inicial:.2f}")
+
