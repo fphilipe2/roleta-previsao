@@ -86,9 +86,9 @@ if 'reflexiva_seq' not in st.session_state:
     st.session_state.reflexiva_seq = []
 if 'alternancia_dupla_seq' not in st.session_state:
     st.session_state.alternancia_dupla_seq = []
-if 'estrategia_2dz_seq' not in st.session_state:  # Nova estratégia
+if 'estrategia_2dz_seq' not in st.session_state:
     st.session_state.estrategia_2dz_seq = []
-if 'estrategia_2cl_seq' not in st.session_state:  # Nova estratégia
+if 'estrategia_2cl_seq' not in st.session_state:
     st.session_state.estrategia_2cl_seq = []
 
 # Função para atualizar todas as estratégias
@@ -104,7 +104,7 @@ def atualizar_estrategias(historico):
         else:
             st.session_state.reflexiva_seq.append('1')
             
-        if len(st.session_state.reflexiva_seq) > 1000:
+        if len(st.session_state.reflexiva_seq) > 2500:
             st.session_state.reflexiva_seq.pop(0)
 
     # Estratégia Alternância Dupla Modificada
@@ -165,12 +165,12 @@ def atualizar_estrategias(historico):
                 st.session_state.estrategia_2cl_seq.append('<span style="color:red">X</span>')
 
     # Limitar histórico a 2500 registros para todas as estratégias
-for seq in [st.session_state.reflexiva_seq,
-            st.session_state.alternancia_dupla_seq,
-            st.session_state.estrategia_2dz_seq,
-            st.session_state.estrategia_2cl_seq]:
-    if len(seq) > 2500:
-        seq.pop(0)
+    for seq in [st.session_state.reflexiva_seq,
+                st.session_state.alternancia_dupla_seq,
+                st.session_state.estrategia_2dz_seq,
+                st.session_state.estrategia_2cl_seq]:
+        if len(seq) > 2500:
+            seq.pop(0)
 
 
 # Funções de formatação
@@ -200,19 +200,10 @@ if uploaded_file:
     df = pd.read_csv(uploaded_file)
     if 'Número' in df.columns:
         st.session_state.historico = df['Número'].tolist()
-
-        # Limpa os resultados anteriores
-        st.session_state.reflexiva_seq = []
-        st.session_state.alternancia_dupla_seq = []
-        st.session_state.estrategia_2dz_seq = []
-        st.session_state.estrategia_2cl_seq = []
-
-        # Reprocessa todo o histórico
-        for i in range(1, len(st.session_state.historico)):
-            parcial = st.session_state.historico[:i+1]
-            atualizar_estrategias(parcial)
-    else:
-        st.error("O arquivo CSV deve conter uma coluna chamada 'Número'")
+        if st.session_state.historico:  # Verifica se o histórico não está vazio
+            atualizar_estrategias()
+        else:
+            st.warning("O arquivo CSV está vazio ou não contém a coluna 'Número'.")
 
 
 
@@ -251,21 +242,21 @@ for i, col in zip(range(0, 37, 12), [col1, col2, col3]):
 st.subheader("Resultados Reflexiva - sequência completa")
 st.markdown(''.join([
     '<span style="color:red">X</span>' if v == 'X' else v 
-    for v in st.session_state.reflexiva_seq[-100:]
+    for v in st.session_state.reflexiva_seq[-250:]
 ]), unsafe_allow_html=True)
 
 # Estratégia Alternância Dupla
 st.subheader("Resultados Estratégia de Alternância Dupla")
 st.markdown(''.join([
     '<span style="color:red">X</span>' if v == 'X' else v 
-    for v in st.session_state.alternancia_dupla_seq[-100:]
+    for v in st.session_state.alternancia_dupla_seq[-250:]
 ]), unsafe_allow_html=True)
 
 # ========== NOVAS ESTRATÉGIAS ==========
 # Estratégia 2DZ (Dúzias)
 st.subheader("Estratégia 2DZ (2 Últimas Dúzias + Zero)")
 resultados_formatados = []
-for item in st.session_state.estrategia_2dz_seq[-100:]:
+for item in st.session_state.estrategia_2dz_seq[-250:]:
     if item == '0':
         resultados_formatados.append('<span style="color:green">0</span>')
     elif item == 'X':
@@ -277,7 +268,7 @@ st.markdown(''.join(resultados_formatados), unsafe_allow_html=True)
 # Estratégia 2CL (Colunas)
 st.subheader("Estratégia 2CL (2 Últimas Colunas + Zero)")
 resultados_formatados = []
-for item in st.session_state.estrategia_2cl_seq[-100:]:
+for item in st.session_state.estrategia_2cl_seq[-250:]:
     if item == '0':
         resultados_formatados.append('<span style="color:green">0</span>')
     elif item == 'X':
