@@ -104,7 +104,7 @@ def atualizar_estrategias():
         else:
             st.session_state.reflexiva_seq.append('1')
             
-        if len(st.session_state.reflexiva_seq) > 250:
+        if len(st.session_state.reflexiva_seq) > 1000:
             st.session_state.reflexiva_seq.pop(0)
 
     # Estratégia Alternância Dupla Modificada
@@ -164,12 +164,12 @@ def atualizar_estrategias():
             else:
                 st.session_state.estrategia_2cl_seq.append('<span style="color:red">X</span>')
 
-    # Limitar histórico a 250 registros para todas as estratégias
+    # Limitar histórico a 1000 registros para todas as estratégias
     for seq in [st.session_state.reflexiva_seq,
                 st.session_state.alternancia_dupla_seq,
                 st.session_state.estrategia_2dz_seq,
                 st.session_state.estrategia_2cl_seq]:
-        if len(seq) > 250:
+        if len(seq) > 1000:
             seq.pop(0)
 
 # Funções de formatação
