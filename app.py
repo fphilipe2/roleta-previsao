@@ -92,11 +92,11 @@ if 'estrategia_2cl_seq' not in st.session_state:  # Nova estratégia
     st.session_state.estrategia_2cl_seq = []
 
 # Função para atualizar todas as estratégias
-def atualizar_estrategias():
+def atualizar_estrategias(historico):
     # Estratégia Reflexiva (VERIFICAÇÃO ÚNICA)
     if len(st.session_state.historico) >= 2:
         ant = st.session_state.historico[-2]
-        atual = st.session_state.historico[-1]
+        atual = historico[-1]
         
         # Única verificação necessária
         if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
@@ -194,19 +194,26 @@ def formatar_alternancia(seq):
 st.title("Bot de Estratégias para Roleta")
 
 # Upload de CSV
-if uploaded_file:
-    st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
-    
-    # Limpa os resultados antigos
-    st.session_state.reflexiva_seq = []
-    st.session_state.alternancia_dupla_seq = []
-    st.session_state.estrategia_2dz_seq = []
-    st.session_state.estrategia_2cl_seq = []
+uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 
-    # Reprocessa todo o histórico
-    for i in range(1, len(st.session_state.historico)):
-        st.session_state.historico = st.session_state.historico[:i+1]
-        atualizar_estrategias()
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    if 'Número' in df.columns:
+        st.session_state.historico = df['Número'].tolist()
+
+        # Limpa os resultados anteriores
+        st.session_state.reflexiva_seq = []
+        st.session_state.alternancia_dupla_seq = []
+        st.session_state.estrategia_2dz_seq = []
+        st.session_state.estrategia_2cl_seq = []
+
+        # Reprocessa todo o histórico
+        for i in range(1, len(st.session_state.historico)):
+            parcial = st.session_state.historico[:i+1]
+            atualizar_estrategias(parcial)
+    else:
+        st.error("O arquivo CSV deve conter uma coluna chamada 'Número'")
+
 
 
 # Controles de números
