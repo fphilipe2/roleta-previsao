@@ -222,11 +222,13 @@ col1, col2 = st.columns([1, 5])
 with col1:
     if st.button("Adicionar número"):
         st.session_state.historico.append(novo)
-        atualizar_estrategias()
+        atualizar_estrategias(st.session_state.historico)
+
 if st.button("⛔ Excluir último número"):
     if st.session_state.historico:
         st.session_state.historico.pop()
-        atualizar_estrategias()
+        atualizar_estrategias(st.session_state.historico)
+
 
 # Exportar histórico
 csv_export = pd.DataFrame({'Número': st.session_state.historico}).to_csv(index=False).encode('utf-8')
