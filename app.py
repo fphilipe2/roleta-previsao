@@ -246,7 +246,7 @@ num_registros_exibir = 1000  # Você pode ajustar para 500, 1000, etc.
 st.subheader("Resultados Reflexiva - sequência completa")
 st.markdown(''.join([
     '<span style="color:red">X</span>' if v == 'X' else v 
-    for v in st.session_state.reflexiva_seq[-num_registros_exibir:]
+    for v in st.session_state.reflexiva_seq[:]
 ]), unsafe_allow_html=True)
 
 # Repita o mesmo para as outras estratégias...
@@ -255,14 +255,14 @@ st.markdown(''.join([
 st.subheader("Resultados Estratégia de Alternância Dupla")
 st.markdown(''.join([
     '<span style="color:red">X</span>' if v == 'X' else v 
-    for v in st.session_state.alternancia_dupla_seq[-num_registros_exibir: 1000]  # Alterado para usar a variável
+    for v in st.session_state.alternancia_dupla_seq[:]  # Alterado para usar a variável
 ]), unsafe_allow_html=True)
 
 # ========== NOVAS ESTRATÉGIAS ==========
 # Estratégia 2DZ (Dúzias)
 st.subheader("Estratégia 2DZ (2 Últimas Dúzias + Zero)")
 resultados_formatados = []
-for item in st.session_state.estrategia_2dz_seq[-num_registros_exibir: 1000]:  # Alterado para usar a variável
+for item in st.session_state.estrategia_2dz_seq[:]:  # Alterado para usar a variável
     if item == '0':
         resultados_formatados.append('<span style="color:green">0</span>')
     elif item == 'X':
@@ -274,7 +274,7 @@ st.markdown(''.join(resultados_formatados), unsafe_allow_html=True)
 # Estratégia 2CL (Colunas)
 st.subheader("Estratégia 2CL (2 Últimas Colunas + Zero)")
 resultados_formatados = []
-for item in st.session_state.estrategia_2cl_seq[-num_registros_exibir:]:  # Alterado para usar a variável
+for item in st.session_state.estrategia_2cl_seq[:]:  # Alterado para usar a variável
     if item == '0':
         resultados_formatados.append('<span style="color:green">0</span>')
     elif item == 'X':
