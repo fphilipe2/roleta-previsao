@@ -164,13 +164,14 @@ def atualizar_estrategias():
             else:
                 st.session_state.estrategia_2cl_seq.append('<span style="color:red">X</span>')
 
-    # Limitar histórico a 1000 registros para todas as estratégias
-    for seq in [st.session_state.reflexiva_seq,
-                st.session_state.alternancia_dupla_seq,
-                st.session_state.estrategia_2dz_seq,
-                st.session_state.estrategia_2cl_seq]:
-        if len(seq) > 1000:
-            seq.pop(0)
+    # Limitar histórico a 2500 registros para todas as estratégias
+for seq in [st.session_state.reflexiva_seq,
+            st.session_state.alternancia_dupla_seq,
+            st.session_state.estrategia_2dz_seq,
+            st.session_state.estrategia_2cl_seq]:
+    if len(seq) > 2500:
+        seq.pop(0)
+
 
 # Funções de formatação
 def formatar_reflexiva(seq):
@@ -193,10 +194,20 @@ def formatar_alternancia(seq):
 st.title("Bot de Estratégias para Roleta")
 
 # Upload de CSV
-uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 if uploaded_file:
     st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
-    atualizar_estrategias()
+    
+    # Limpa os resultados antigos
+    st.session_state.reflexiva_seq = []
+    st.session_state.alternancia_dupla_seq = []
+    st.session_state.estrategia_2dz_seq = []
+    st.session_state.estrategia_2cl_seq = []
+
+    # Reprocessa todo o histórico
+    for i in range(1, len(st.session_state.historico)):
+        st.session_state.historico = st.session_state.historico[:i+1]
+        atualizar_estrategias()
+
 
 # Controles de números
 novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
