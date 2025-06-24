@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from collections import deque
+num_registros_exibir = 1000  # Define quantos registros serão mostrados em todas as estratégias
+
+# ... (o resto do código permanece igual até as seções de exibição)
 # Lista de números proibidos
 numeros_proibidos = {
     1: [3, 7, 8, 11, 12, 13, 28, 29, 30, 35, 36],
@@ -252,14 +255,14 @@ st.markdown(''.join([
 st.subheader("Resultados Estratégia de Alternância Dupla")
 st.markdown(''.join([
     '<span style="color:red">X</span>' if v == 'X' else v 
-    for v in st.session_state.alternancia_dupla_seq[-250:]
+    for v in st.session_state.alternancia_dupla_seq[-num_registros_exibir: 1000]  # Alterado para usar a variável
 ]), unsafe_allow_html=True)
 
 # ========== NOVAS ESTRATÉGIAS ==========
 # Estratégia 2DZ (Dúzias)
 st.subheader("Estratégia 2DZ (2 Últimas Dúzias + Zero)")
 resultados_formatados = []
-for item in st.session_state.estrategia_2dz_seq[-250:]:
+for item in st.session_state.estrategia_2dz_seq[-num_registros_exibir: 1000]:  # Alterado para usar a variável
     if item == '0':
         resultados_formatados.append('<span style="color:green">0</span>')
     elif item == 'X':
@@ -271,7 +274,7 @@ st.markdown(''.join(resultados_formatados), unsafe_allow_html=True)
 # Estratégia 2CL (Colunas)
 st.subheader("Estratégia 2CL (2 Últimas Colunas + Zero)")
 resultados_formatados = []
-for item in st.session_state.estrategia_2cl_seq[-250:]:
+for item in st.session_state.estrategia_2cl_seq[-num_registros_exibir:]:  # Alterado para usar a variável
     if item == '0':
         resultados_formatados.append('<span style="color:green">0</span>')
     elif item == 'X':
