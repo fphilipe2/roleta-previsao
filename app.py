@@ -238,7 +238,7 @@ for i, col in zip(range(0, 37, 12), [col1, col2, col3]):
 
 # Estratégia Reflexiva
 # Aumente o número de registros exibidos (opcional)
-num_registros_exibir = 250  # Você pode ajustar para 500, 1000, etc.
+num_registros_exibir = 1000  # Você pode ajustar para 500, 1000, etc.
 
 st.subheader("Resultados Reflexiva - sequência completa")
 st.markdown(''.join([
