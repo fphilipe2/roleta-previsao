@@ -40,6 +40,17 @@ numeros_proibidos = {
     31: [0, 3, 5, 8, 10, 11, 12, 23, 26, 30, 35],
     34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
 }
+duzias = {
+    'D1': list(range(1, 13)),
+    'D2': list(range(13, 25)),
+    'D3': list(range(25, 37))
+}
+
+colunas = {
+    'C1': [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34],
+    'C2': [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
+    'C3': [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36]
+}
 # Funções auxiliares para as NOVAS estratégias
 def identificar_dúzia(num):
     if num == 0: return '0'
@@ -93,7 +104,7 @@ def atualizar_estrategias():
         else:
             st.session_state.reflexiva_seq.append('1')
             
-        if len(st.session_state.reflexiva_seq) > 250:
+        if len(st.session_state.reflexiva_seq) > 1000:
             st.session_state.reflexiva_seq.pop(0)
 
     # Estratégia Alternância Dupla Modificada
@@ -153,12 +164,12 @@ def atualizar_estrategias():
             else:
                 st.session_state.estrategia_2cl_seq.append('<span style="color:red">X</span>')
 
-    # Limitar histórico a 250 registros para todas as estratégias
+    # Limitar histórico a 1000 registros para todas as estratégias
     for seq in [st.session_state.reflexiva_seq,
                 st.session_state.alternancia_dupla_seq,
                 st.session_state.estrategia_2dz_seq,
                 st.session_state.estrategia_2cl_seq]:
-        if len(seq) > 250:
+        if len(seq) > 1000:
             seq.pop(0)
 
 # Funções de formatação
@@ -268,6 +279,3 @@ if len(st.session_state.historico) >= 5:
             viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
             st.write(f"Padrão: {ultimos}. V{p1}V{p2}: {viz}")
             break
-
-
-
