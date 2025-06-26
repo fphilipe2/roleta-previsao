@@ -180,16 +180,12 @@ def atualizar_estrategias():
             num1, num2, num3 = st.session_state.historico[i-2], st.session_state.historico[i-1], st.session_state.historico[i]
             proximo = st.session_state.historico[i+1]
             
-            # Pega vizinhos dos últimos 2 números do trio
-            vizinhos_comb = set(vizinhos(num2)) | set(vizinhos(num3))
+            vizinhos_comb = set(vizinhos(num2)) | set(vizinhos(num3))  # Sintaxe correta
             
-            if proximo in vizinhos_comb:
-                st.session_state.padrao_3_seq.append("1")
-            else:
-                st.session_state.padrao_3_seq.append("X")
+            st.session_state.padrao_3_seq.append("1" if proximo in vizinhos_comb else "X")
     
-    if len(st.session_state.padrao_3_seq) > 2500:
-        st.session_state.padrao_3_seq = st.session_state.padrao_3_seq[-2500:]
+    # Limita o histórico
+    st.session_state.padrao_3_seq = st.session_state.padrao_3_seq[-2500:]
 
 
 # Funções de formatação
@@ -216,10 +212,8 @@ st.title("Bot de Estratégias para Roleta")
 
 uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 if uploaded_file:
-    try:
-        df = pd.read_csv(uploaded_file)
-        if 'Número' in df.columns:
-            st.session_state.historico = df['Número'].tolist()
+    st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
+    atualizar_estrategias()  # ✅ Sem argumentos!
             if st.session_state.historico:
                 atualizar_estrategias()
                 st.success("Histórico carregado e estratégias atualizadas!")
@@ -240,10 +234,9 @@ with col1:
         st.session_state.historico.append(novo)
         atualizar_estrategias(st.session_state.historico)
 
-if st.button("⛔ Excluir último número"):
-    if st.session_state.historico:
-        st.session_state.historico.pop()
-        atualizar_estrategias(st.session_state.historico)
+if st.button("Adicionar número"):
+    st.session_state.historico.append(novo)
+    atualizar_estrategias()  # ✅ Sem argumentos!
 
 
 # Exportar histórico
