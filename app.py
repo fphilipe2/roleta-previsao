@@ -181,7 +181,7 @@ def atualizar_estrategias():
             proximo = st.session_state.historico[i+1]
             
             # Pega vizinhos dos últimos 2 números do trio
-            vizinhos_comb = set(vizinhos(num2) + set(vizinhos(num3))
+            vizinhos_comb = set(vizinhos(num2)) | set(vizinhos(num3))
             
             if proximo in vizinhos_comb:
                 st.session_state.padrao_3_seq.append("1")
