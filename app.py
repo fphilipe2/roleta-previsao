@@ -85,7 +85,7 @@ st.set_page_config(page_title="Bot de Estratégias para Roleta", layout="wide")
 # Inicialização do session state
 # Limite aumentado para 2500
 if 'padrao_3_seq' not in st.session_state:
-    st.session_state.padrao_3_seq = []  # Armazenará "1" (acerto) ou "X" (erro)
+    st.session_state.padrao_3_seq = []
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'reflexiva_seq' not in st.session_state:
@@ -170,24 +170,23 @@ def atualizar_estrategias():
             seq = seq[-2500:]  # Mantém apenas os últimos 2500
                 # ... (mantenha o código das outras estratégias)
 
-    # --- Estratégia Padrão de 3 Números ---
-    st.session_state.padrao_3_seq = []  # Limpa antes de recalcular
-    if len(st.session_state.historico) >= 4:  # Mínimo 4 números para analisar
-        for i in range(2, len(st.session_state.historico) - 1):
-            # Pega os 3 números anteriores (i-2, i-1, i) e o próximo (i+1)
-            padrao = st.session_state.historico[i-2:i+1]
+# Estratégia Padrão de 3 Números
+    st.session_state.padrao_3_seq = []  # Limpa a sequência antes de recálculo
+    if len(st.session_state.historico) >= 4:
+        for i in range(2, len(st.session_state.historico)-1):
+            # Pega 3 números consecutivos
+            trio = st.session_state.historico[i-2:i+1]
             proximo = st.session_state.historico[i+1]
             
-            # Verifica se o próximo está entre os vizinhos dos 2 últimos do padrão
-            num1, num2 = st.session_state.historico[i-1], st.session_state.historico[i]
-            vizinhos_combinados = set(vizinhos(num1) + set(vizinhos(num2))
+            # Verifica se o próximo está entre os vizinhos dos últimos 2 do trio
+            vizinhos_comb = set(vizinhos(trio[1]) + vizinhos(trio[2]))
             
-            if proximo in vizinhos_combinados:
-                st.session_state.padrao_3_seq.append("1")  # Acerto
+            if proximo in vizinhos_comb:
+                st.session_state.padrao_3_seq.append("1")
             else:
-                st.session_state.padrao_3_seq.append("X")  # Erro
-
-    # Limita a sequência a 2500 registros (como as outras)
+                st.session_state.padrao_3_seq.append("X")
+    
+    # Limita o histórico
     if len(st.session_state.padrao_3_seq) > 2500:
         st.session_state.padrao_3_seq = st.session_state.padrao_3_seq[-2500:]
 
@@ -307,12 +306,16 @@ for item in st.session_state.estrategia_2cl_seq[:]:  # Alterado para usar a vari
         resultados_formatados.append(item)
 st.markdown(''.join(resultados_formatados), unsafe_allow_html=True)
 
-# ------ Estratégia Padrão de 3 Números ------
 st.subheader("Padrão de 3 Números - Resultados")
-st.markdown(''.join([
-    '<span style="color:green">1</span>' if v == '1' else '<span style="color:red">X</span>'
-    for v in st.session_state.padrao_3_seq[-num_registros_exibir:]
-]), unsafe_allow_html=True)
+if st.session_state.padrao_3_seq:
+    html_resultados = ''.join([
+        '<span style="color:green">1</span>' if v == '1' 
+        else '<span style="color:red">X</span>' 
+        for v in st.session_state.padrao_3_seq[-num_registros_exibir:]
+    ])
+    st.markdown(html_resultados, unsafe_allow_html=True)
+else:
+    st.write("Aguardando dados suficientes (mínimo 4 números no histórico)")
 
 
 
