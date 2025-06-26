@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 from collections import deque
-
-# Lista de números proibidos (mesmo conteúdo)
+# Lista de números proibidos
 numeros_proibidos = {
     1: [3, 7, 8, 11, 12, 13, 28, 29, 30, 35, 36],
     36: [1, 2, 4, 14, 15, 16, 19, 20, 21, 24, 33],
@@ -42,322 +40,234 @@ numeros_proibidos = {
     31: [0, 3, 5, 8, 10, 11, 12, 23, 26, 30, 35],
     34: [0, 3, 5, 8, 10, 23, 24, 26, 30, 32, 35],
 }
+# Funções auxiliares para as NOVAS estratégias
+def identificar_dúzia(num):
+    if num == 0: return '0'
+    if 1 <= num <= 12: return 'D1'
+    if 13 <= num <= 24: return 'D2'
+    return 'D3'
 
+def identificar_coluna(num):
+    if num == 0: return '0'
+    col_map = {1:1,4:1,7:1,10:1,13:1,16:1,19:1,22:1,25:1,28:1,31:1,34:1,
+               2:2,5:2,8:2,11:2,14:2,17:2,20:2,23:2,26:2,29:2,32:2,35:2,
+               3:3,6:3,9:3,12:3,15:3,18:3,21:3,24:3,27:3,30:3,33:3,36:3}
+    return f'C{col_map.get(num,0)}'
+
+numero_para_grupos = {}
+for num in range(37):  # 0-36
+    grupos_num = []
+    # Verifica dúzia
+    for d, nums in duzias.items():
+        if num in nums:
+            grupos_num.append(d)
+    # Verifica coluna
+    for c, nums in colunas.items():
+        if num in nums:
+            grupos_num.append(c)
+    numero_para_grupos[num] = grupos_num
 st.set_page_config(page_title="Bot de Estratégias para Roleta", layout="wide")
 
-# Sessões e histórico
+# Inicialização do session state
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'reflexiva_seq' not in st.session_state:
     st.session_state.reflexiva_seq = []
 if 'alternancia_dupla_seq' not in st.session_state:
     st.session_state.alternancia_dupla_seq = []
+if 'estrategia_2dz_seq' not in st.session_state:  # Nova estratégia
+    st.session_state.estrategia_2dz_seq = []
+if 'estrategia_2cl_seq' not in st.session_state:  # Nova estratégia
+    st.session_state.estrategia_2cl_seq = []
 
-st.title("Bot de Estratégias para Roleta")
-
-# Upload CSV
-uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
-if uploaded_file:
-    dados_csv = pd.read_csv(uploaded_file)['Número'].tolist()
-    if 'historico' not in st.session_state or not st.session_state.historico:
-        st.session_state.historico = dados_csv
-    else:
-        st.session_state.historico.extend(dados_csv)
-
-# Inserir novo número
-novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
-col1, col2 = st.columns([1, 5])
-with col1:
-    if st.button("Adicionar número"):
-        st.session_state.historico.append(novo)
-        # Botão para remover o último número
-if st.button("⛔ Excluir último número"):
-    if st.session_state.historico:
-        removido = st.session_state.historico.pop()
-        st.warning(f"Número {removido} removido do histórico.")
-    else:
-        st.warning("O histórico está vazio.")
-
-    # Reflexiva
+# Função para atualizar todas as estratégias
+def atualizar_estrategias():
+    # Estratégia Reflexiva (VERIFICAÇÃO ÚNICA)
     if len(st.session_state.historico) >= 2:
         ant = st.session_state.historico[-2]
         atual = st.session_state.historico[-1]
+        
+        # Única verificação necessária
         if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
-            res = 'X'
+            st.session_state.reflexiva_seq.append('X')
         else:
-            res = '1'
-        st.session_state.reflexiva_seq.append(res)
+            st.session_state.reflexiva_seq.append('1')
+            
         if len(st.session_state.reflexiva_seq) > 250:
             st.session_state.reflexiva_seq.pop(0)
 
-    # Alternância Dupla por grupo
-    grupos = [
-        [1, 4, 7, 10], [2, 5, 8, 11], [3, 6, 9, 12],
-        [13, 16, 19, 22], [14, 17, 20, 23], [15, 18, 21, 24],
-        [25, 28, 31, 34], [26, 29, 32, 35], [27, 30, 33, 36]
-    ]
+    # Estratégia Alternância Dupla Modificada
     if len(st.session_state.historico) >= 2:
         ant = st.session_state.historico[-2]
         atual = st.session_state.historico[-1]
-        for grupo in grupos:
-            if ant in grupo:
-                if atual in grupo:
-                    st.session_state.alternancia_dupla_seq.append('1')
-                else:
-                    st.session_state.alternancia_dupla_seq.append('X')
-                if len(st.session_state.alternancia_dupla_seq) > 250:
-                    st.session_state.alternancia_dupla_seq.pop(0)
-                break
 
-# Exportar histórico com botão de download
-df_export = pd.DataFrame({'Número': st.session_state.historico})
-csv_export = df_export.to_csv(index=False).encode('utf-8')
+    # Estratégia Alternância Dupla - VERSAO CORRIGIDA (único resultado)
+    if len(st.session_state.historico) >= 2:
+        ant = st.session_state.historico[-2]
+        atual = st.session_state.historico[-1]
+        
+        if ant == 0:
+            resultado = 'X'
+        else:
+            # Verifica APENAS UMA VEZ se compartilham QUALQUER grupo
+            grupos_ant = numero_para_grupos[ant]
+            grupos_atual = numero_para_grupos[atual]
+            resultado = '1' if any(grupo in grupos_atual for grupo in grupos_ant) else 'X'
+        
+        # Adiciona APENAS UM RESULTADO à sequência
+        st.session_state.alternancia_dupla_seq.append(resultado)
+        
+      # ----- NOVA Estratégia 2DZ (Dúzias) -----
+    if len(st.session_state.historico) >= 3:
+        ultimas_dz = []
+        for num in reversed(st.session_state.historico[:-1]):
+            dz = identificar_dúzia(num)
+            if dz != '0' and dz not in ultimas_dz:
+                ultimas_dz.append(dz)
+                if len(ultimas_dz) == 2: break
+        
+        if len(ultimas_dz) == 2:
+            dz_atual = identificar_dúzia(st.session_state.historico[-1])
+            if dz_atual == '0':
+                st.session_state.estrategia_2dz_seq.append('<span style="color:green">0</span>')
+            elif dz_atual in ultimas_dz:
+                st.session_state.estrategia_2dz_seq.append('1')
+            else:
+                st.session_state.estrategia_2dz_seq.append('<span style="color:red">X</span>')
 
-st.download_button(
-    label="📥 Exportar histórico CSV",
-    data=csv_export,
-    file_name='historico_atualizado.csv',
-    mime='text/csv',
-)
+    # ----- NOVA Estratégia 2CL (Colunas) -----
+    if len(st.session_state.historico) >= 3:
+        ultimas_cl = []
+        for num in reversed(st.session_state.historico[:-1]):
+            cl = identificar_coluna(num)
+            if cl != '0' and cl not in ultimas_cl:
+                ultimas_cl.append(cl)
+                if len(ultimas_cl) == 2: break
+        
+        if len(ultimas_cl) == 2:
+            cl_atual = identificar_coluna(st.session_state.historico[-1])
+            if cl_atual == '0':
+                st.session_state.estrategia_2cl_seq.append('<span style="color:green">0</span>')
+            elif cl_atual in ultimas_cl:
+                st.session_state.estrategia_2cl_seq.append('1')
+            else:
+                st.session_state.estrategia_2cl_seq.append('<span style="color:red">X</span>')
 
-# Resultados por número (Reflexiva)
-st.subheader("Resultados por Número (Reflexiva)")
-por_numero = {n: deque(maxlen=20) for n in range(37)}
-for i in range(1, len(st.session_state.historico)):
-    ant = st.session_state.historico[i - 1]
-    atual = st.session_state.historico[i]
-    if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
-        por_numero[ant].append("X")
-    else:
-        por_numero[ant].append("1")
-col1, col2, col3 = st.columns(3)
-for i, col in zip(range(0, 37, 12), [col1, col2, col3]):
-    with col:
-        for j in range(i, i + 12):
-            resultados = ' '.join(por_numero[j])
-            st.write(f"{j} = {resultados}")
+    # Limitar histórico a 250 registros para todas as estratégias
+    for seq in [st.session_state.reflexiva_seq,
+                st.session_state.alternancia_dupla_seq,
+                st.session_state.estrategia_2dz_seq,
+                st.session_state.estrategia_2cl_seq]:
+        if len(seq) > 250:
+            seq.pop(0)
 
-# Retorna os 5 vizinhos anteriores e 5 posteriores (com rotação de 0 a 36)
-def vizinhos(numero):
-    return [(numero + i) % 37 for i in range(-5, 6)]
-
-st.subheader("📊 Simulação Completa - Estratégia: Padrão de 3 Números (Histórico)")
-
-banca_inicial = 600
-banca = banca_inicial
-gales = [22, 44, 132, 396]
-historico = st.session_state.historico
-resultados_simulados = []
-
-# Armazenar padrões já testados para evitar repetições
-padroes_testados = set()
-
-for i in range(len(historico) - 5):
-    padrao_base = set(historico[i:i+3])
-    if len(padrao_base) < 3 or tuple(sorted(padrao_base)) in padroes_testados:
-        continue
-
-    # Procurar nova ocorrência do padrão
-    for j in range(i+3, len(historico) - 2):
-        proximo_padrao = set(historico[j:j+3])
-        if padrao_base == proximo_padrao:
-            p1, p2 = historico[j], historico[j+1]
-            padroes_testados.add(tuple(sorted(padrao_base)))
-            
-            try:
-                vizinhos_roleta = {
-    0: [0, 26, 3, 35, 12, 28, 32, 15, 19, 4, 21],
-    1: [1, 33, 16, 24, 5, 10, 20, 14, 31, 9, 22],
-    2: [2, 21, 4, 19, 15, 32, 25, 17, 34, 6, 27],
-    3: [3, 35, 12, 28, 7, 29, 26, 0, 32, 15, 19],
-    4: [4, 19, 15, 32, 0, 26, 21, 2, 25, 17, 34],
-    5: [5, 24, 16, 33, 1, 20, 10, 23, 8, 30, 11],
-    6: [6, 34, 17, 25, 2, 21, 27, 13, 36, 11, 30],
-    7: [7, 29, 18, 22, 9, 31, 28, 12, 35, 3, 26],
-    8: [8, 30, 11, 36, 13, 27, 23, 10, 5, 24, 16],
-    9: [9, 31, 14, 20, 1, 33, 22, 18, 29, 7, 28],
-    10:[10, 23, 8, 30, 11, 36, 5, 24, 16, 33, 1],
-    11: [11, 36, 13, 27, 6, 34, 30, 8, 23, 10, 5],
-    12: [12, 28, 7, 29, 18, 22, 35, 3, 26, 0, 32],
-    13: [13, 27, 6, 34, 17, 25, 36, 11, 30, 8, 23],
-    14: [14, 20, 1, 33, 16, 24, 31, 9, 22, 18, 29],
-    15: [15, 32, 0, 26, 3, 35, 19, 4, 21, 2, 25],
-    16: [16, 24, 5, 10, 23, 8, 33, 1, 20, 14, 31],
-    17: [17, 25, 2, 21, 4, 19, 34, 6, 27, 13, 36],
-    18: [18, 22, 9, 31, 14, 20, 29, 7, 28, 12, 35],
-    19: [19, 15, 32, 0, 26, 3, 4, 21, 2, 25, 17],
-    20: [20, 14, 31, 9, 22, 18, 1, 33, 16, 24, 5],
-    21: [21, 4, 19, 15, 32, 0, 2, 25, 17, 34, 6],
-    22: [22, 18, 29, 7, 28, 12, 9, 31, 14, 20, 1],
-    23: [23, 10, 5, 24, 16, 33, 8, 30, 11, 36, 13],
-    24: [24, 16, 33, 1, 20, 14, 5, 10, 23, 8, 30],
-    25: [25, 2, 21, 4, 19, 15, 17, 34, 6, 27, 13],
-    26: [26, 3, 35, 12, 28, 7, 0, 32, 15, 19, 4],
-    27: [27, 6, 34, 17, 25, 2, 13, 36, 11, 30, 8],
-    28: [28, 12, 35, 3, 26, 0, 7, 29, 18, 22, 9],
-    29: [29, 7, 28, 12, 35, 3, 18, 22, 9, 31, 14],
-    30: [30, 11, 36, 13, 27, 6, 8, 23, 10, 5, 24],
-    31: [31, 9, 22, 18, 29, 7, 14, 20, 1, 33, 16],
-    32: [32, 0, 26, 3, 35, 12, 15, 19, 4, 21, 2],
-    33: [33, 1, 20, 14, 31, 9, 16, 24, 5, 10, 23],
-    34: [34, 17, 25, 2, 21, 4, 6, 27, 13, 36, 11],
-    35: [35, 12, 28, 7, 29, 18, 3, 26, 0, 32, 15],
-    36: [36, 13, 27, 6, 34, 17, 11, 30, 8, 23, 10]
-}
-
-               def obter_vizinhos_completos(numero):
-    """Retorna o número + 5 vizinhos de cada lado (11 números no total)"""
-    return vizinhos_fisicos.get(numero, [numero])  # Fallback para o próprio número se não encontrado
-
-# Na simulação:
-for i in range(len(historico) - 5):
-    padrao_base = historico[i:i+3]  # Sequência de 3 números
-    
-    # Busca padrão repetido
-    for j in range(i+3, len(historico) - 2):
-        if historico[j:j+3] == padrao_base:
-            p1, p2 = historico[j+3], historico[j+4]  # Dois números após o padrão
-            
-            # Obter vizinhos de p1 e p2 (11 números cada)
-            numeros_aposta = obter_vizinhos_completos(p1) + obter_vizinhos_completos(p2)
-            
-            # Remover duplicatas e ordenar
-            viz = sorted(list(set(numeros_aposta)))
-            
-            st.write(f"Padrão detectado: {set(padrao_base)}. V{p1}V{p2}: {viz}")
-
-                contagem_fichas = {}
-                for num in numeros_aposta:
-                    contagem_fichas[num] = contagem_fichas.get(num, 0) + 1
-
-                resultado = ""
-                tentativa_realizada = False
-
-                for gale_index, valor in enumerate(gales):
-                    sorteio_index = j + 2 + gale_index
-                    if sorteio_index >= len(historico):
-                        break
-                    sorteado = historico[sorteio_index]
-                    fichas = contagem_fichas.get(sorteado, 0)
-
-                    if fichas > 0:
-                        premio = 36 * fichas
-                        saldo = premio - sum(gales[:gale_index + 1])
-                        banca += saldo
-                        resultado = f"✅ GREEN no Gale {gale_index} ({sorteado}) - Ganhou R$ {premio} (saldo {saldo:+})"
-                        tentativa_realizada = True
-                        break
-                    else:
-                        banca -= valor
-                        resultado = f"❌ RED no Gale {gale_index} ({sorteado}) - Perdeu R$ {valor}"
-
-                if tentativa_realizada or gale_index == len(gales) - 1:
-                    resultados_simulados.append(f"Padrão: {padrao_base} - Palpite: V{p1}V{p2} - {resultado}")
-
-            except Exception as e:
-                st.error(f"Erro na simulação: {e}")
-
-            break  # sair após encontrar uma repetição
-
-# Mostrar resultados
-for r in resultados_simulados[-5:]:
-    st.write(r)
-
-st.markdown(f"**Banca Inicial:** R$ {banca_inicial}")
-st.markdown(f"**Banca Final:** R$ {banca:.2f}")
-st.markdown(f"**Lucro/Prejuízo:** R$ {banca - banca_inicial:.2f}")
-
-# Estratégia Reflexiva - sequência completa
-st.subheader("Resultados Reflexiva - sequência completa")
+# Funções de formatação
 def formatar_reflexiva(seq):
     res = []
     cont = 1
-    for i, val in enumerate(seq):
+    for val in seq:
         if val == 'X':
             res.append('<span style="color:red">X</span>')
             cont = 1
         else:
             res.append(str(cont))
             cont += 1
-    linhas = [''.join(res[i:i+50]) for i in range(0, len(res), 50)]
-    return '<br>'.join(linhas)
-st.markdown(formatar_reflexiva(st.session_state.reflexiva_seq), unsafe_allow_html=True)
+    return '<br>'.join([''.join(res[i:i+50]) for i in range(0, len(res), 50)])
 
-# Estratégia Alternância Dupla - Dúzia e Coluna
-st.subheader("Resultados Estratégia de Alternância Dupla (Dúzia e Coluna)")
-def formatar_estrategia(seq):
-    res = []
-    for v in seq:
-        if v == 'X':
-            res.append('<span style="color:red">X</span>')
-        else:
-            res.append(v)
-    linhas = [''.join(res[i:i+50]) for i in range(0, len(res), 50)]
-    return '<br>'.join(linhas)
-st.markdown(formatar_estrategia(st.session_state.alternancia_dupla_seq), unsafe_allow_html=True)
+def formatar_alternancia(seq):
+    res = ['<span style="color:red">X</span>' if v == 'X' else v for v in seq]
+    return '<br>'.join([''.join(res[i:i+50]) for i in range(0, len(res), 50)])
 
-# Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)
-st.subheader("Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)")
+# Interface principal
+st.title("Bot de Estratégias para Roleta")
 
+# Upload de CSV
+uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
+if uploaded_file:
+    st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
+    atualizar_estrategias()
+
+# Controles de números
+novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
+col1, col2 = st.columns([1, 5])
+with col1:
+    if st.button("Adicionar número"):
+        st.session_state.historico.append(novo)
+        atualizar_estrategias()
+if st.button("⛔ Excluir último número"):
+    if st.session_state.historico:
+        st.session_state.historico.pop()
+        atualizar_estrategias()
+
+# Exportar histórico
+csv_export = pd.DataFrame({'Número': st.session_state.historico}).to_csv(index=False).encode('utf-8')
+st.download_button("📥 Exportar histórico CSV", data=csv_export, file_name='historico.csv')
+
+# ========== EXIBIÇÃO DOS RESULTADOS ==========
+# Resultados por número (Reflexiva)
+st.subheader("Resultados por Número (Reflexiva)")
+por_numero = {n: deque(maxlen=20) for n in range(37)}
+for i in range(1, len(st.session_state.historico)):
+    ant, atual = st.session_state.historico[i-1], st.session_state.historico[i]
+    por_numero[ant].append("X" if (ant in numeros_proibidos and atual in numeros_proibidos[ant]) else "1")
+col1, col2, col3 = st.columns(3)
+for i, col in zip(range(0, 37, 12), [col1, col2, col3]):
+    with col:
+        for j in range(i, i + 12):
+            st.write(f"{j} = {' '.join(por_numero[j])}")
+
+# Estratégia Reflexiva
+st.subheader("Resultados Reflexiva - sequência completa")
+st.markdown(''.join([
+    '<span style="color:red">X</span>' if v == 'X' else v 
+    for v in st.session_state.reflexiva_seq[-100:]
+]), unsafe_allow_html=True)
+
+# Estratégia Alternância Dupla
+st.subheader("Resultados Estratégia de Alternância Dupla")
+st.markdown(''.join([
+    '<span style="color:red">X</span>' if v == 'X' else v 
+    for v in st.session_state.alternancia_dupla_seq[-100:]
+]), unsafe_allow_html=True)
+
+# ========== NOVAS ESTRATÉGIAS ==========
+# Estratégia 2DZ (Dúzias)
+st.subheader("Estratégia 2DZ (2 Últimas Dúzias + Zero)")
+resultados_formatados = []
+for item in st.session_state.estrategia_2dz_seq[-100:]:
+    if item == '0':
+        resultados_formatados.append('<span style="color:green">0</span>')
+    elif item == 'X':
+        resultados_formatados.append('<span style="color:red">X</span>')
+    else:
+        resultados_formatados.append(item)
+st.markdown(''.join(resultados_formatados), unsafe_allow_html=True)
+
+# Estratégia 2CL (Colunas)
+st.subheader("Estratégia 2CL (2 Últimas Colunas + Zero)")
+resultados_formatados = []
+for item in st.session_state.estrategia_2cl_seq[-100:]:
+    if item == '0':
+        resultados_formatados.append('<span style="color:green">0</span>')
+    elif item == 'X':
+        resultados_formatados.append('<span style="color:red">X</span>')
+    else:
+        resultados_formatados.append(item)
+st.markdown(''.join(resultados_formatados), unsafe_allow_html=True)
+
+# Estratégia Padrão de 3 Números (mantida original)
+def vizinhos(numero):
+    return [(numero + i) % 37 for i in range(-5, 6)]
+
+st.subheader("Padrão de 3 Números")
 if len(st.session_state.historico) >= 5:
-    ultimos = st.session_state.historico[-3:]
-    ultimos_set = set(ultimos)
-
+    ultimos = set(st.session_state.historico[-3:])
     for i in range(len(st.session_state.historico) - 5):
-        padrao = st.session_state.historico[i:i+3]
-        if set(padrao) == ultimos_set:
-            if i + 5 < len(st.session_state.historico):
-                p1 = st.session_state.historico[i+3]
-                p2 = st.session_state.historico[i+4]
-                try:
-                    viz1 = vizinhos(p1)
-                    viz2 = vizinhos(p2)
-                    viz = sorted(set(viz1 + viz2))
-                    st.write(f"Padrão detectado: {set(padrao)}. V{p1}V{p2}: {viz}")
-                except Exception as e:
-                    st.error(f"Erro ao gerar vizinhos: {e}")
+        if set(st.session_state.historico[i:i+3]) == ultimos and i + 5 < len(st.session_state.historico):
+            p1, p2 = st.session_state.historico[i+3], st.session_state.historico[i+4]
+            viz = sorted(set(vizinhos(p1) + vizinhos(p2)))
+            st.write(f"Padrão: {ultimos}. V{p1}V{p2}: {viz}")
             break
 
-# Estratégia: Padrão de 3 Números (Repetição em qualquer ordem) - SIMULAÇÃO DE BANCA
-st.subheader("Simulação de Banca - Estratégia: Padrão de 3 Números (Repetição em qualquer ordem)")
 
-banca_inicial = 600
-banca = banca_inicial
-gales = [22, 44, 132, 396]
-tentativas = 0
-resultado = ""
-ganho = 0
 
-# Se houver palpite armazenado, simula a entrada
-if 'padrao_3n_palpite' in st.session_state:
-    alvo = st.session_state.padrao_3n_palpite  # lista com os 22 números
-    jogadas = st.session_state.historico[-(len(gales)+1):]  # pega últimas jogadas
-
-    for i, entrada in enumerate(gales):
-        if len(jogadas) <= i:
-            break  # ainda não houve essa jogada
-
-        numero_sorteado = jogadas[-(len(gales) - i)]
-
-        # Contar quantas fichas cada número recebeu
-        contagem_fichas = {}
-        for num in alvo:
-            contagem_fichas[num] = contagem_fichas.get(num, 0) + entrada // 22
-
-        fichas_no_sorteado = contagem_fichas.get(numero_sorteado, 0)
-        if fichas_no_sorteado > 0:
-            premio = 36 * fichas_no_sorteado
-            ganho = premio
-            resultado = f"🎯 GREEN no Gale {i} (nº {numero_sorteado}) com {fichas_no_sorteado} ficha(s)"
-            break
-        else:
-            banca -= entrada
-            resultado = f"❌ RED no Gale {i} (nº {numero_sorteado})"
-
-    # Se houve ganho, computar saldo
-    if ganho:
-        banca += ganho
-
-    st.markdown(f"**Resultado:** {resultado}")
-    st.markdown(f"**Banca Atual:** R$ {banca:.2f}")
-    st.markdown(f"**Ganho Líquido:** R$ {banca - banca_inicial:.2f}")
