@@ -81,6 +81,9 @@ for num in range(37):  # 0-36
             grupos_num.append(c)
     numero_para_grupos[num] = grupos_num
 st.set_page_config(page_title="Bot de Estratégias para Roleta", layout="wide")
+def vizinhos(numero):
+    """Retorna os 5 números vizinhos de cada lado do número na roleta"""
+    return [(numero + i) % 37 for i in range(-5, 6)]  # %37 para garantir que fique entre 0-36
 
 # Inicialização do session state
 # Limite aumentado para 2500
@@ -170,23 +173,21 @@ def atualizar_estrategias():
             seq = seq[-2500:]  # Mantém apenas os últimos 2500
                 # ... (mantenha o código das outras estratégias)
 
-# Estratégia Padrão de 3 Números
-    st.session_state.padrao_3_seq = []  # Limpa a sequência antes de recálculo
+# --- Estratégia Padrão de 3 Números ---
+    st.session_state.padrao_3_seq = []
     if len(st.session_state.historico) >= 4:
         for i in range(2, len(st.session_state.historico)-1):
-            # Pega 3 números consecutivos
-            trio = st.session_state.historico[i-2:i+1]
+            num1, num2, num3 = st.session_state.historico[i-2], st.session_state.historico[i-1], st.session_state.historico[i]
             proximo = st.session_state.historico[i+1]
             
-            # Verifica se o próximo está entre os vizinhos dos últimos 2 do trio
-            vizinhos_comb = set(vizinhos(trio[1]) + vizinhos(trio[2]))
+            # Pega vizinhos dos últimos 2 números do trio
+            vizinhos_comb = set(vizinhos(num2) + set(vizinhos(num3))
             
             if proximo in vizinhos_comb:
                 st.session_state.padrao_3_seq.append("1")
             else:
                 st.session_state.padrao_3_seq.append("X")
     
-    # Limita o histórico
     if len(st.session_state.padrao_3_seq) > 2500:
         st.session_state.padrao_3_seq = st.session_state.padrao_3_seq[-2500:]
 
