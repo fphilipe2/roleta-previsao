@@ -80,66 +80,56 @@ for num in range(37):  # 0-36
     numero_para_grupos[num] = grupos_num
 st.set_page_config(page_title="Bot de Estratégias para Roleta", layout="wide")
 
-# Inicialização do session state
+# Limite aumentado para 2500
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'reflexiva_seq' not in st.session_state:
     st.session_state.reflexiva_seq = []
 if 'alternancia_dupla_seq' not in st.session_state:
     st.session_state.alternancia_dupla_seq = []
-if 'estrategia_2dz_seq' not in st.session_state:  # Nova estratégia
+if 'estrategia_2dz_seq' not in st.session_state:
     st.session_state.estrategia_2dz_seq = []
-if 'estrategia_2cl_seq' not in st.session_state:  # Nova estratégia
+if 'estrategia_2cl_seq' not in st.session_state:
     st.session_state.estrategia_2cl_seq = []
-
+    
 # Função para atualizar todas as estratégias
 def atualizar_estrategias():
-    # Estratégia Reflexiva (VERIFICAÇÃO ÚNICA)
-    if len(st.session_state.historico) >= 2:
-        ant = st.session_state.historico[-2]
-        atual = st.session_state.historico[-1]
-        
-        # Única verificação necessária
+    # Limpa as sequências antes de recalculá-las (importante ao carregar um novo CSV)
+    st.session_state.reflexiva_seq = []
+    st.session_state.alternancia_dupla_seq = []
+    st.session_state.estrategia_2dz_seq = []
+    st.session_state.estrategia_2cl_seq = []
+
+    # Processa cada número no histórico para atualizar as estratégias
+    for i in range(1, len(st.session_state.historico)):
+        ant = st.session_state.historico[i-1]
+        atual = st.session_state.historico[i]
+
+        # Estratégia Reflexiva
         if ant in numeros_proibidos and atual in numeros_proibidos[ant]:
             st.session_state.reflexiva_seq.append('X')
         else:
             st.session_state.reflexiva_seq.append('1')
-            
-        if len(st.session_state.reflexiva_seq) > 1000:
-            st.session_state.reflexiva_seq.pop(0)
 
-    # Estratégia Alternância Dupla Modificada
-    if len(st.session_state.historico) >= 2:
-        ant = st.session_state.historico[-2]
-        atual = st.session_state.historico[-1]
-
-    # Estratégia Alternância Dupla - VERSAO CORRIGIDA (único resultado)
-    if len(st.session_state.historico) >= 2:
-        ant = st.session_state.historico[-2]
-        atual = st.session_state.historico[-1]
-        
+        # Estratégia Alternância Dupla
         if ant == 0:
             resultado = 'X'
         else:
-            # Verifica APENAS UMA VEZ se compartilham QUALQUER grupo
             grupos_ant = numero_para_grupos[ant]
             grupos_atual = numero_para_grupos[atual]
             resultado = '1' if any(grupo in grupos_atual for grupo in grupos_ant) else 'X'
-        
-        # Adiciona APENAS UM RESULTADO à sequência
         st.session_state.alternancia_dupla_seq.append(resultado)
-        
-      # ----- NOVA Estratégia 2DZ (Dúzias) -----
-    if len(st.session_state.historico) >= 3:
-        ultimas_dz = []
-        for num in reversed(st.session_state.historico[:-1]):
-            dz = identificar_dúzia(num)
-            if dz != '0' and dz not in ultimas_dz:
-                ultimas_dz.append(dz)
-                if len(ultimas_dz) == 2: break
-        
-        if len(ultimas_dz) == 2:
-            dz_atual = identificar_dúzia(st.session_state.historico[-1])
+
+        # Estratégia 2DZ (Dúzias) - Requer pelo menos 3 números
+        if i >= 2:
+            ultimas_dz = []
+            for num in reversed(st.session_state.historico[:i]):  # Pega os números anteriores
+                dz = identificar_dúzia(num)
+                if dz != '0' and dz not in ultimas_dz:
+                    ultimas_dz.append(dz)
+                    if len(ultimas_dz) == 2: break
+            
+            dz_atual = identificar_dúzia(atual)
             if dz_atual == '0':
                 st.session_state.estrategia_2dz_seq.append('<span style="color:green">0</span>')
             elif dz_atual in ultimas_dz:
@@ -147,17 +137,16 @@ def atualizar_estrategias():
             else:
                 st.session_state.estrategia_2dz_seq.append('<span style="color:red">X</span>')
 
-    # ----- NOVA Estratégia 2CL (Colunas) -----
-    if len(st.session_state.historico) >= 3:
-        ultimas_cl = []
-        for num in reversed(st.session_state.historico[:-1]):
-            cl = identificar_coluna(num)
-            if cl != '0' and cl not in ultimas_cl:
-                ultimas_cl.append(cl)
-                if len(ultimas_cl) == 2: break
-        
-        if len(ultimas_cl) == 2:
-            cl_atual = identificar_coluna(st.session_state.historico[-1])
+        # Estratégia 2CL (Colunas) - Requer pelo menos 3 números
+        if i >= 2:
+            ultimas_cl = []
+            for num in reversed(st.session_state.historico[:i]):  # Pega os números anteriores
+                cl = identificar_coluna(num)
+                if cl != '0' and cl not in ultimas_cl:
+                    ultimas_cl.append(cl)
+                    if len(ultimas_cl) == 2: break
+            
+            cl_atual = identificar_coluna(atual)
             if cl_atual == '0':
                 st.session_state.estrategia_2cl_seq.append('<span style="color:green">0</span>')
             elif cl_atual in ultimas_cl:
@@ -165,13 +154,15 @@ def atualizar_estrategias():
             else:
                 st.session_state.estrategia_2cl_seq.append('<span style="color:red">X</span>')
 
-    # Limitar histórico a 1000 registros para todas as estratégias
-    for seq in [st.session_state.reflexiva_seq,
-                st.session_state.alternancia_dupla_seq,
-                st.session_state.estrategia_2dz_seq,
-                st.session_state.estrategia_2cl_seq]:
-        if len(seq) > 1000:
-            seq.pop(0)
+    # Limita o histórico a 2500 registros
+    for seq in [
+        st.session_state.reflexiva_seq,
+        st.session_state.alternancia_dupla_seq,
+        st.session_state.estrategia_2dz_seq,
+        st.session_state.estrategia_2cl_seq
+    ]:
+        if len(seq) > 2500:
+            seq = seq[-2500:]  # Mantém apenas os últimos 2500
 
 # Funções de formatação
 def formatar_reflexiva(seq):
@@ -194,10 +185,21 @@ def formatar_alternancia(seq):
 st.title("Bot de Estratégias para Roleta")
 
 # Upload de CSV
-uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
+uuploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 if uploaded_file:
-    st.session_state.historico = pd.read_csv(uploaded_file)['Número'].tolist()
-    atualizar_estrategias()
+    try:
+        df = pd.read_csv(uploaded_file)
+        if 'Número' in df.columns:
+            st.session_state.historico = df['Número'].tolist()
+            if st.session_state.historico:
+                atualizar_estrategias()
+                st.success("Histórico carregado e estratégias atualizadas!")
+            else:
+                st.warning("O CSV está vazio ou não contém números válidos.")
+        else:
+            st.error("O arquivo CSV deve ter uma coluna chamada 'Número'.")
+    except Exception as e:
+        st.error(f"Erro ao ler o arquivo: {e}")
 
 # Controles de números
 novo = st.number_input("Novo número da roleta", min_value=0, max_value=36, step=1)
@@ -229,11 +231,15 @@ for i, col in zip(range(0, 37, 12), [col1, col2, col3]):
             st.write(f"{j} = {' '.join(por_numero[j])}")
 
 # Estratégia Reflexiva
+# Aumente o número de registros exibidos (opcional)
+num_registros_exibir = 250  # Você pode ajustar para 500, 1000, etc.
+
 st.subheader("Resultados Reflexiva - sequência completa")
 st.markdown(''.join([
     '<span style="color:red">X</span>' if v == 'X' else v 
-    for v in st.session_state.reflexiva_seq[-100:]
+    for v in st.session_state.reflexiva_seq[-num_registros_exibir:]
 ]), unsafe_allow_html=True)
+
 
 # Estratégia Alternância Dupla
 st.subheader("Resultados Estratégia de Alternância Dupla")
