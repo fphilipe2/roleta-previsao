@@ -187,7 +187,7 @@ def formatar_alternancia(seq):
 st.title("Bot de Estratégias para Roleta")
 
 # Upload de CSV
-uuploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
+uploaded_file = st.file_uploader("Importar histórico (CSV)", type="csv")
 if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file)
