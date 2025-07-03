@@ -15,7 +15,7 @@ CORES = {
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'resultados' not in st.session_state:
-    st.session_state.resultados = defaultdict(lambda: deque(maxlen=20))  # Número: [cores após ele]
+    st.session_state.resultados = defaultdict(lambda: deque(maxlen=50))  # Número: [cores após ele]
 
 def atualizar_resultados():
     if len(st.session_state.historico) > 1:
