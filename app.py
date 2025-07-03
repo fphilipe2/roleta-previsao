@@ -6,7 +6,7 @@ from collections import defaultdict, deque
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'proximas_cores' not in st.session_state:
-    st.session_state.proximas_cores = defaultdict(lambda: deque(maxlen=100))  # Limite de 100 registros
+    st.session_state.proximas_cores = defaultdict(lambda: deque(maxlen=100))
 
 # Mapeamento de cores (Roleta Europeia)
 CORES = {
@@ -24,6 +24,15 @@ def registrar_numero(numero):
         cor_atual = CORES.get(numero, 'G')
         st.session_state.proximas_cores[numero_anterior].append(cor_atual)
     st.session_state.historico.append(numero)
+
+# Função para formatar com cores
+def formatar_cor(c):
+    if c == 'R':
+        return '<span style="color:red">R</span>'
+    elif c == 'B':
+        return '<span style="color:black">B</span>'
+    else:  # G
+        return '<span style="color:green">G</span>'
 
 # Interface
 st.title("Rastreamento de Cores Pós-Número")
@@ -50,13 +59,14 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Erro ao ler arquivo: {e}")
 
-# Exibição organizada
+# Exibição organizada com cores
 st.subheader("Últimas 100 cores após cada número")
 cols = st.columns(4)
 for numero in range(37):  # 0-36
     with cols[numero % 4]:
-        historico = ''.join(st.session_state.proximas_cores[numero])
-        st.text(f"{numero}: {historico}")
+        # Formata cada caractere com sua cor
+        historico_formatado = ''.join([formatar_cor(c) for c in st.session_state.proximas_cores[numero]])
+        st.markdown(f"{numero}: {historico_formatado}", unsafe_allow_html=True)
 
 # Visualização da sequência
 st.subheader("Últimos números sorteados")
