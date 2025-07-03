@@ -1,11 +1,12 @@
 import streamlit as st
+import pandas as pd
 from collections import defaultdict, deque
 
 # Configuração inicial
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'proximas_cores' not in st.session_state:
-    st.session_state.proximas_cores = defaultdict(lambda: deque(maxlen=100))  # Limite de 100 registros por número
+    st.session_state.proximas_cores = defaultdict(lambda: deque(maxlen=100))  # Limite de 100 registros
 
 # Mapeamento de cores (Roleta Europeia)
 CORES = {
@@ -18,30 +19,38 @@ CORES = {
 }
 
 def registrar_numero(numero):
-    # Registra a cor do número que veio DEPOIS do anterior
     if len(st.session_state.historico) > 0:
         numero_anterior = st.session_state.historico[-1]
         cor_atual = CORES.get(numero, 'G')
         st.session_state.proximas_cores[numero_anterior].append(cor_atual)
-    
     st.session_state.historico.append(numero)
 
 # Interface
 st.title("Rastreamento de Cores Pós-Número")
 
-# Entrada de dados
+# Entrada manual
 col1, col2 = st.columns(2)
 with col1:
     novo_numero = st.number_input("Número sorteado (0-36)", min_value=0, max_value=36)
 with col2:
     if st.button("Registrar"):
         registrar_numero(novo_numero)
+
+# Upload de CSV
 uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
 if uploaded_file:
-    numeros = pd.read_csv(uploaded_file)['Número'].tolist()
-    for num in numeros:
-        registrar_numero(num)
-# Exibição organizada em 4 colunas
+    try:
+        dados = pd.read_csv(uploaded_file)
+        if 'Número' in dados.columns:
+            for num in dados['Número'].tolist():
+                registrar_numero(num)
+            st.success("Histórico carregado com sucesso!")
+        else:
+            st.error("O arquivo CSV precisa ter uma coluna chamada 'Número'")
+    except Exception as e:
+        st.error(f"Erro ao ler arquivo: {e}")
+
+# Exibição organizada
 st.subheader("Últimas 100 cores após cada número")
 cols = st.columns(4)
 for numero in range(37):  # 0-36
@@ -50,5 +59,5 @@ for numero in range(37):  # 0-36
         st.text(f"{numero}: {historico}")
 
 # Visualização da sequência
-st.subheader("Sequência completa")
-st.write(" → ".join(str(n) for n in st.session_state.historico[-100:]))
+st.subheader("Últimos números sorteados")
+st.write(" → ".join(str(n) for n in st.session_state.historico[-50:]))
