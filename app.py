@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from collections import defaultdict, deque
+from io import StringIO
 
 # Configuração inicial
 if 'historico' not in st.session_state:
@@ -25,7 +26,6 @@ def registrar_numero(numero):
         st.session_state.proximas_cores[numero_anterior].append(cor_atual)
     st.session_state.historico.append(numero)
 
-# Função para formatar com cores
 def formatar_cor(c):
     if c == 'R':
         return '<span style="color:red">R</span>'
@@ -37,7 +37,7 @@ def formatar_cor(c):
 # Interface
 st.title("Rastreamento de Cores Pós-Número")
 
-# Entrada manual
+# Controles
 col1, col2 = st.columns(2)
 with col1:
     novo_numero = st.number_input("Número sorteado (0-36)", min_value=0, max_value=36)
@@ -59,15 +59,36 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Erro ao ler arquivo: {e}")
 
-# Exibição organizada com cores
+# Exportar CSV
+if st.button("📥 Exportar Histórico CSV"):
+    if len(st.session_state.historico) > 0:
+        # Cria DataFrame com duas colunas: Número e Cor
+        df_export = pd.DataFrame({
+            'Número': st.session_state.historico,
+            'Cor': [CORES.get(num, 'G') for num in st.session_state.historico]
+        })
+        
+        # Converte para CSV
+        csv = df_export.to_csv(index=False).encode('utf-8')
+        
+        # Cria botão de download
+        st.download_button(
+            label="Baixar CSV",
+            data=csv,
+            file_name='historico_roleta.csv',
+            mime='text/csv'
+        )
+    else:
+        st.warning("Nenhum dado para exportar!")
+
+# Exibição dos resultados
 st.subheader("Últimas 100 cores após cada número")
 cols = st.columns(4)
 for numero in range(37):  # 0-36
     with cols[numero % 4]:
-        # Formata cada caractere com sua cor
         historico_formatado = ''.join([formatar_cor(c) for c in st.session_state.proximas_cores[numero]])
         st.markdown(f"{numero}: {historico_formatado}", unsafe_allow_html=True)
 
 # Visualização da sequência
-st.subheader("Últimos números sorteados")
+st.subheader(f"Últimos {min(50, len(st.session_state.historico))} números sorteados")
 st.write(" → ".join(str(n) for n in st.session_state.historico[-50:]))
