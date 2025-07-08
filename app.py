@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import time
 from collections import defaultdict, deque
 from io import StringIO
 
@@ -16,6 +17,8 @@ if 'estrategia_especial2' not in st.session_state:  # Estratégia 2 (7,12,35)
     st.session_state.estrategia_especial2 = defaultdict(lambda: deque(maxlen=100))
 if 'sequencia_estrategia2' not in st.session_state:
     st.session_state.sequencia_estrategia2 = deque(maxlen=1000)
+    if 'ultimo_clique' not in st.session_state:
+    st.session_state.ultimo_clique = 0
 
 # Números especiais para as estratégias
 NUMEROS_ESPECIAIS_1 = {2, 8, 11, 17, 20, 26, 29, 35}
@@ -32,6 +35,15 @@ CORES = {
 }
 
 def registrar_numero(numero):
+    # Proteção contra duplo clique (verifica se passou pelo menos 0.5 segundos)
+    if time.time() - st.session_state.ultimo_clique < 0.5:
+        st.warning("Aguarde 0.5 segundos entre os cliques!")
+        return
+    
+    # Atualiza o tempo do último clique válido
+    st.session_state.ultimo_clique = time.time()
+    
+    # Restante da função original (não mexa nessa parte)
     if len(st.session_state.historico) > 0:
         numero_anterior = st.session_state.historico[-1]
         cor_atual = CORES.get(numero, 'G')
@@ -43,7 +55,7 @@ def registrar_numero(numero):
             st.session_state.estrategia_especial1[numero_anterior].append(resultado)
             st.session_state.sequencia_estrategia1.append(resultado)
             
-        # Estratégia Especial 2 (Nova)
+        # Estratégia Especial 2
         if numero_anterior in NUMEROS_ESPECIAIS_2:
             resultado = 'R' if numero not in NUMEROS_PROIBIDOS_2 else 'B'
             st.session_state.estrategia_especial2[numero_anterior].append(resultado)
@@ -67,8 +79,8 @@ col1, col2 = st.columns(2)
 with col1:
     novo_numero = st.number_input("Número sorteado (0-36)", min_value=0, max_value=36)
 with col2:
-    if st.button("Registrar"):
-        registrar_numero(novo_numero)
+if st.button("Registrar", key="botao_registrar_unico"):
+    registrar_numero(novo_numero)
 
 # Upload de CSV
 uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
