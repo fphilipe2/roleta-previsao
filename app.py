@@ -8,6 +8,11 @@ if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'proximas_cores' not in st.session_state:
     st.session_state.proximas_cores = defaultdict(lambda: deque(maxlen=100))
+if 'estrategia_especial' not in st.session_state:
+    st.session_state.estrategia_especial = defaultdict(lambda: deque(maxlen=100))
+
+# Números especiais para a nova estratégia
+NUMEROS_ESPECIAIS = {2, 8, 11, 17, 20, 26, 29, 35}
 
 # Mapeamento de cores (Roleta Europeia)
 CORES = {
@@ -20,10 +25,17 @@ CORES = {
 }
 
 def registrar_numero(numero):
+    # Registra para a estratégia de cores padrão
     if len(st.session_state.historico) > 0:
         numero_anterior = st.session_state.historico[-1]
         cor_atual = CORES.get(numero, 'G')
         st.session_state.proximas_cores[numero_anterior].append(cor_atual)
+        
+        # Registra para a nova estratégia especial
+        if numero_anterior in NUMEROS_ESPECIAIS:
+            resultado = 'R' if numero not in NUMEROS_ESPECIAIS else 'B'
+            st.session_state.estrategia_especial[numero_anterior].append(resultado)
+    
     st.session_state.historico.append(numero)
 
 def formatar_cor(c):
@@ -35,7 +47,7 @@ def formatar_cor(c):
         return '<span style="color:green">G</span>'
 
 # Interface
-st.title("Rastreamento de Cores Pós-Número")
+st.title("Rastreamento de Estratégias de Roleta")
 
 # Controles
 col1, col2 = st.columns(2)
@@ -62,16 +74,11 @@ if uploaded_file:
 # Exportar CSV
 if st.button("📥 Exportar Histórico CSV"):
     if len(st.session_state.historico) > 0:
-        # Cria DataFrame com duas colunas: Número e Cor
         df_export = pd.DataFrame({
             'Número': st.session_state.historico,
             'Cor': [CORES.get(num, 'G') for num in st.session_state.historico]
         })
-        
-        # Converte para CSV
         csv = df_export.to_csv(index=False).encode('utf-8')
-        
-        # Cria botão de download
         st.download_button(
             label="Baixar CSV",
             data=csv,
@@ -81,13 +88,24 @@ if st.button("📥 Exportar Histórico CSV"):
     else:
         st.warning("Nenhum dado para exportar!")
 
-# Exibição dos resultados
-st.subheader("Últimas 100 cores após cada número")
+# Exibição da estratégia de cores padrão
+st.subheader("Estratégia Padrão - Cores após cada número")
 cols = st.columns(4)
-for numero in range(37):  # 0-36
+for numero in range(37):
     with cols[numero % 4]:
         historico_formatado = ''.join([formatar_cor(c) for c in st.session_state.proximas_cores[numero]])
         st.markdown(f"{numero}: {historico_formatado}", unsafe_allow_html=True)
+
+# Exibição da nova estratégia especial
+st.subheader("Nova Estratégia - Números Especiais (2,8,11,17,20,26,29,35)")
+st.write("R = Próximo número NÃO é especial | B = Próximo número É especial")
+
+especiais_ordenados = sorted(NUMEROS_ESPECIAIS)
+cols_especiais = st.columns(len(especiais_ordenados))
+for i, num in enumerate(especiais_ordenados):
+    with cols_especiais[i]:
+        historico_formatado = ''.join([formatar_cor(c) for c in st.session_state.estrategia_especial[num]])
+        st.markdown(f"{num}: {historico_formatado}", unsafe_allow_html=True)
 
 # Visualização da sequência
 st.subheader(f"Últimos {min(50, len(st.session_state.historico))} números sorteados")
