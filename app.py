@@ -12,14 +12,14 @@ if 'estrategia_especial1' not in st.session_state:  # Estratégia 1 (2,8,11...)
     st.session_state.estrategia_especial1 = defaultdict(lambda: deque(maxlen=100))
 if 'sequencia_estrategia1' not in st.session_state:
     st.session_state.sequencia_estrategia1 = deque(maxlen=1000)
-if 'estrategia_especial2' not in st.session_state:  # Estratégia 2 (7,12,4)
+if 'estrategia_especial2' not in st.session_state:  # Estratégia 2 (7,12,35)
     st.session_state.estrategia_especial2 = defaultdict(lambda: deque(maxlen=100))
 if 'sequencia_estrategia2' not in st.session_state:
     st.session_state.sequencia_estrategia2 = deque(maxlen=1000)
 
 # Números especiais para as estratégias
 NUMEROS_ESPECIAIS_1 = {2, 8, 11, 17, 20, 26, 29, 35}
-NUMEROS_ESPECIAIS_2 = {7, 12, 4}
+NUMEROS_ESPECIAIS_2 = {7, 12, 35}
 NUMEROS_PROIBIDOS_2 = {8, 11, 13, 29, 35, 26}
 
 # Mapeamento de cores
@@ -122,7 +122,7 @@ for i, num in enumerate(sorted(NUMEROS_ESPECIAIS_1)):
 st.markdown(f"**Sequência:** {''.join([formatar_cor(c) for c in st.session_state.sequencia_estrategia1])}", unsafe_allow_html=True)
 
 # Estratégia Especial 2 (Nova)
-st.subheader("Estratégia 2 - Números (7,12,4) seguidos de (8,11,13,29,35,26)")
+st.subheader("Estratégia 2 - Números (7,12,35) seguidos de (8,11,13,29,35,26)")
 st.write("R = Próximo número NÃO está na lista proibida | B = Próximo número está na lista proibida")
 
 cols_especiais2 = st.columns(len(NUMEROS_ESPECIAIS_2))
