@@ -10,6 +10,8 @@ if 'proximas_cores' not in st.session_state:
     st.session_state.proximas_cores = defaultdict(lambda: deque(maxlen=100))
 if 'estrategia_especial' not in st.session_state:
     st.session_state.estrategia_especial = defaultdict(lambda: deque(maxlen=100))
+if 'sequencia_estrategia' not in st.session_state:  # Novo campo para a sequência
+    st.session_state.sequencia_estrategia = deque(maxlen=1000)
 
 # Números especiais para a nova estratégia
 NUMEROS_ESPECIAIS = {2, 8, 11, 17, 20, 26, 29, 35}
@@ -35,6 +37,7 @@ def registrar_numero(numero):
         if numero_anterior in NUMEROS_ESPECIAIS:
             resultado = 'R' if numero not in NUMEROS_ESPECIAIS else 'B'
             st.session_state.estrategia_especial[numero_anterior].append(resultado)
+            st.session_state.sequencia_estrategia.append(resultado)  # Adiciona à sequência
     
     st.session_state.historico.append(numero)
 
@@ -76,7 +79,8 @@ if st.button("📥 Exportar Histórico CSV"):
     if len(st.session_state.historico) > 0:
         df_export = pd.DataFrame({
             'Número': st.session_state.historico,
-            'Cor': [CORES.get(num, 'G') for num in st.session_state.historico]
+            'Cor': [CORES.get(num, 'G') for num in st.session_state.historico],
+            'Estratégia Especial': ['X'] * len(st.session_state.historico)  # Placeholder
         })
         csv = df_export.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -107,6 +111,12 @@ for i, num in enumerate(especiais_ordenados):
         historico_formatado = ''.join([formatar_cor(c) for c in st.session_state.estrategia_especial[num]])
         st.markdown(f"{num}: {historico_formatado}", unsafe_allow_html=True)
 
-# Visualização da sequência
+# Novo campo: Resultados em sequência
+st.subheader("Resultados da Estratégia em Sequência")
+sequencia_formatada = ''.join([formatar_cor(c) for c in st.session_state.sequencia_estrategia])
+st.markdown(f"Sequência: {sequencia_formatada}", unsafe_allow_html=True)
+st.write(f"Total: {len(st.session_state.sequencia_estrategia)} resultados")
+
+# Visualização da sequência de números
 st.subheader(f"Últimos {min(50, len(st.session_state.historico))} números sorteados")
 st.write(" → ".join(str(n) for n in st.session_state.historico[-50:]))
