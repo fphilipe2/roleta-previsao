@@ -76,11 +76,13 @@ st.title("Rastreamento de Estratégias de Roleta")
 
 # Controles
 col1, col2 = st.columns(2)
+
 with col1:
     novo_numero = st.number_input("Número sorteado (0-36)", min_value=0, max_value=36)
+
 with col2:
-if st.button("Registrar", key="botao_registrar_unico"):
-    registrar_numero(novo_numero)
+    if st.button("Registrar", key="botao_registrar_unico"):
+        registrar_numero(novo_numero)  # 4 espaços de indentação aqui)
 
 # Upload de CSV
 uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
