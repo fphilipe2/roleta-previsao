@@ -17,8 +17,8 @@ if 'estrategia_especial2' not in st.session_state:  # Estratégia 2 (7,12,35)
     st.session_state.estrategia_especial2 = defaultdict(lambda: deque(maxlen=100))
 if 'sequencia_estrategia2' not in st.session_state:
     st.session_state.sequencia_estrategia2 = deque(maxlen=1000)
-    if 'ultimo_clique' not in st.session_state:    
-    st.session_state.ultimo_clique = 0
+if 'ultimo_clique' not in st.session_state:    # Esta linha deve estar no mesmo nível das outras if
+    st.session_state.ultimo_clique = 0         # Esta linha deve estar indentada com 4 espaços
 
 # Números especiais para as estratégias
 NUMEROS_ESPECIAIS_1 = {2, 8, 11, 17, 20, 26, 29, 35}
