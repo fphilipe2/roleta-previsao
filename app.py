@@ -18,7 +18,7 @@ if 'estrategia_especial2' not in st.session_state:  # Estratégia 2 (7,12,35)
 if 'sequencia_estrategia2' not in st.session_state:
     st.session_state.sequencia_estrategia2 = deque(maxlen=1000)
     if 'ultimo_clique' not in st.session_state:
-    st.session_state.ultimo_clique = 0
+    st.session_state.ultimo_clique = 0    
 
 # Números especiais para as estratégias
 NUMEROS_ESPECIAIS_1 = {2, 8, 11, 17, 20, 26, 29, 35}
