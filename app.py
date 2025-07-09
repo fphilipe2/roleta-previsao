@@ -34,28 +34,28 @@ CORES = {
     30: 'R', 31: 'B', 32: 'R', 33: 'B', 34: 'R', 35: 'B', 36: 'R'
 }
 
-def registrar_numero(numero):
-    # Proteção contra duplo clique (verifica se passou pelo menos 0.5 segundos)
-    if time.time() - st.session_state.ultimo_clique < 0.5:
-        st.warning("Aguarde 0.5 segundos entre os cliques!")
-        return
+def registrar_numero(numero, ignore_clique=False):
+    """
+    ignore_clique: True para carregamento CSV (ignora proteção contra duplo clique)
+    """
+    if not ignore_clique:
+        # Proteção contra duplo clique apenas para cliques manuais
+        if time.time() - st.session_state.ultimo_clique < 0.5:
+            st.warning("Aguarde 0.5 segundos entre os cliques!")
+            return
+        st.session_state.ultimo_clique = time.time()
     
-    # Atualiza o tempo do último clique válido
-    st.session_state.ultimo_clique = time.time()
-    
-    # Restante da função original (não mexa nessa parte)
+    # Restante da função (mantenha igual)
     if len(st.session_state.historico) > 0:
         numero_anterior = st.session_state.historico[-1]
         cor_atual = CORES.get(numero, 'G')
         st.session_state.proximas_cores[numero_anterior].append(cor_atual)
         
-        # Estratégia Especial 1
         if numero_anterior in NUMEROS_ESPECIAIS_1:
             resultado = 'R' if numero not in NUMEROS_ESPECIAIS_1 else 'B'
             st.session_state.estrategia_especial1[numero_anterior].append(resultado)
             st.session_state.sequencia_estrategia1.append(resultado)
             
-        # Estratégia Especial 2
         if numero_anterior in NUMEROS_ESPECIAIS_2:
             resultado = 'R' if numero not in NUMEROS_PROIBIDOS_2 else 'B'
             st.session_state.estrategia_especial2[numero_anterior].append(resultado)
@@ -90,8 +90,9 @@ if uploaded_file:
     try:
         dados = pd.read_csv(uploaded_file)
         if 'Número' in dados.columns:
+            # Usamos ignore_clique=True para o carregamento CSV
             for num in dados['Número'].tolist():
-                registrar_numero(num)
+                registrar_numero(num, ignore_clique=True)
             st.success("Histórico carregado com sucesso!")
         else:
             st.error("O arquivo CSV precisa ter uma coluna chamada 'Número'")
