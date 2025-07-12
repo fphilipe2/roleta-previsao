@@ -21,7 +21,7 @@ if 'ultimo_clique' not in st.session_state:
     st.session_state.ultimo_clique = 0
 
 # Números para as estratégias
-GRUPO_C2 = {2, 8, 11, 17, 20, 26, 29, 35}  # Estratégia C2
+GRUPO_C2 = {2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35}  # Estratégia C2
 NUMEROS_ESPECIAIS_2 = {7, 12, 35}
 NUMEROS_PROIBIDOS_2 = {8, 11, 13, 29, 35, 26}
 
