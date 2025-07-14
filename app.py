@@ -9,21 +9,20 @@ if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'proximas_cores' not in st.session_state:
     st.session_state.proximas_cores = defaultdict(lambda: deque(maxlen=100))
-if 'estrategia_especial1' not in st.session_state:  # Estratégia 1 (2,8,11...)
+if 'estrategia_especial1' not in st.session_state:
     st.session_state.estrategia_especial1 = defaultdict(lambda: deque(maxlen=100))
 if 'sequencia_estrategia1' not in st.session_state:
     st.session_state.sequencia_estrategia1 = deque(maxlen=1000)
-if 'estrategia_especial2' not in st.session_state:  # Estratégia 2 (7,12,35)
+if 'estrategia_especial2' not in st.session_state:
     st.session_state.estrategia_especial2 = defaultdict(lambda: deque(maxlen=100))
 if 'sequencia_estrategia2' not in st.session_state:
     st.session_state.sequencia_estrategia2 = deque(maxlen=1000)
-if 'ultimo_clique' not in st.session_state:    # Esta linha deve estar no mesmo nível das outras if
-    st.session_state.ultimo_clique = 0         # Esta linha deve estar indentada com 4 espaços
+if 'ultimo_clique' not in st.session_state:
+    st.session_state.ultimo_clique = 0
 
-# Mapeamento de cores (Roleta Europeia)
+# Mapeamento de cores
 CORES = {
-    0: 'G',  # Verde
-    1: 'R', 2: 'B', 3: 'R', 4: 'B', 5: 'R', 6: 'B', 7: 'R', 8: 'B',
+    0: 'G', 1: 'R', 2: 'B', 3: 'R', 4: 'B', 5: 'R', 6: 'B', 7: 'R', 8: 'B',
     9: 'R', 10: 'B', 11: 'B', 12: 'R', 13: 'B', 14: 'R', 15: 'B',
     16: 'R', 17: 'B', 18: 'R', 19: 'R', 20: 'B', 21: 'R', 22: 'B',
     23: 'R', 24: 'B', 25: 'R', 26: 'B', 27: 'R', 28: 'B', 29: 'B',
@@ -31,17 +30,12 @@ CORES = {
 }
 
 def registrar_numero(numero, ignore_clique=False):
-    """
-    ignore_clique: True para carregamento CSV (ignora proteção contra duplo clique)
-    """
     if not ignore_clique:
-        # Proteção contra duplo clique apenas para cliques manuais
         if time.time() - st.session_state.ultimo_clique < 0.5:
             st.warning("Aguarde 0.5 segundos entre os cliques!")
             return
         st.session_state.ultimo_clique = time.time()
     
-    # Restante da função (mantenha igual)
     if len(st.session_state.historico) > 0:
         numero_anterior = st.session_state.historico[-1]
         cor_atual = CORES.get(numero, 'G')
@@ -64,28 +58,20 @@ def formatar_cor(c):
         return '<span style="color:red">R</span>'
     elif c == 'B':
         return '<span style="color:black">B</span>'
-    else:  # G
+    else:
         return '<span style="color:green">G</span>'
 
-# Na interface, modifique a seção dos controles para:
+# Interface
+st.title("Rastreamento de Estratégias de Roleta")
+
+# Controles (APENAS UMA SEÇÃO)
 col1, col2 = st.columns(2)
 with col1:
     novo_numero = st.number_input("Número sorteado (0-36)", min_value=0, max_value=36)
 
 with col2:
     if st.button("Registrar", key="botao_registrar_unico"):
-        registrar_numero(novo_numero)  # Esta linha deve estar indentada com 4 espaços
-
-# Controles
-col1, col2 = st.columns(2)
-
-with col1:
-    novo_numero = st.number_input("Número sorteado (0-36)", min_value=0, max_value=36)
-
-with col2:
-    if st.button("Registrar", key="botao_registrar_unico"):
-        registrar_numero(novo_numero)  # 4 espaços de indentação aqui
-        # Qualquer outra linha dentro deste bloco também deve ter 4 espaços adicionais
+        registrar_numero(novo_numero)
 
 # Upload de CSV
 uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
@@ -93,7 +79,6 @@ if uploaded_file:
     try:
         dados = pd.read_csv(uploaded_file)
         if 'Número' in dados.columns:
-            # Usamos ignore_clique=True para o carregamento CSV
             for num in dados['Número'].tolist():
                 registrar_numero(num, ignore_clique=True)
             st.success("Histórico carregado com sucesso!")
@@ -105,26 +90,24 @@ if uploaded_file:
 # Exportar CSV
 if st.button("📥 Exportar Histórico CSV"):
     if len(st.session_state.historico) > 0:
-        # Cria DataFrame com duas colunas: Número e Cor
         df_export = pd.DataFrame({
             'Número': st.session_state.historico,
             'Cor': [CORES.get(num, 'G') for num in st.session_state.historico]
         })
-        
-        # Converte para CSV
         csv = df_export.to_csv(index=False).encode('utf-8')
-        
-        with col2:
-    if st.button("Registrar", key="botao_registrar_unico"):
-        registrar_numero(novo_numero)  # Aqui não usamos ignore_clique (proteção ativa)
-        
+        st.download_button(
+            label="Baixar CSV",
+            data=csv,
+            file_name='historico_roleta.csv',
+            mime='text/csv'
+        )
     else:
         st.warning("Nenhum dado para exportar!")
 
 # Exibição dos resultados
 st.subheader("Últimas 100 cores após cada número")
 cols = st.columns(4)
-for numero in range(37):  # 0-36
+for numero in range(37):
     with cols[numero % 4]:
         historico_formatado = ''.join([formatar_cor(c) for c in st.session_state.proximas_cores[numero]])
         st.markdown(f"{numero}: {historico_formatado}", unsafe_allow_html=True)
