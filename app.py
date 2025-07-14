@@ -113,12 +113,9 @@ if st.button("📥 Exportar Histórico CSV"):
         # Converte para CSV
         csv = df_export.to_csv(index=False).encode('utf-8')
         
-        # Cria botão de download
-        st.download_button(
-            label="Baixar CSV",
-            data=csv,
-            file_name='historico_roleta.csv',
-            mime='text/csv'
+        with col2:
+    if st.button("Registrar", key="botao_registrar_unico"):
+        registrar_numero(novo_numero)  # Aqui não usamos ignore_clique (proteção ativa)
         )
     else:
         st.warning("Nenhum dado para exportar!")
