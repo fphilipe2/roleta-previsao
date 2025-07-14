@@ -116,7 +116,7 @@ if st.button("📥 Exportar Histórico CSV"):
         with col2:
     if st.button("Registrar", key="botao_registrar_unico"):
         registrar_numero(novo_numero)  # Aqui não usamos ignore_clique (proteção ativa)
-        )
+        
     else:
         st.warning("Nenhum dado para exportar!")
 
