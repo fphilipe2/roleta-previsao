@@ -4,7 +4,7 @@ import time
 from collections import defaultdict, deque
 from io import StringIO
 
-# Configuração inicial COMPLETA
+# 1. CONFIGURAÇÃO INICIAL COMPLETA
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'proximas_cores' not in st.session_state:
@@ -13,21 +13,29 @@ if 'estrategia_c2' not in st.session_state:
     st.session_state.estrategia_c2 = defaultdict(lambda: deque(maxlen=100))
 if 'sequencia_c2' not in st.session_state:
     st.session_state.sequencia_c2 = deque(maxlen=1000)
-if 'estrategia_especial2' not in st.session_state:  # Adicione esta inicialização
+if 'estrategia_especial2' not in st.session_state:
     st.session_state.estrategia_especial2 = defaultdict(lambda: deque(maxlen=100))
-if 'sequencia_estrategia2' not in st.session_state:  # Adicione esta inicialização
+if 'sequencia_estrategia2' not in st.session_state:
     st.session_state.sequencia_estrategia2 = deque(maxlen=1000)
 if 'ultimo_clique' not in st.session_state:
     st.session_state.ultimo_clique = 0
 
-# Definição dos grupos de números
+# 2. DEFINIÇÃO DOS GRUPOS DE NÚMEROS
 GRUPO_C2 = {2, 8, 11, 17, 20, 26, 29, 35}
-NUMEROS_ESPECIAIS_1 = GRUPO_C2
-NUMEROS_ESPECIAIS_2 = {7, 12, 35}  # Para estratégia especial 2
-NUMEROS_PROIBIDOS_2 = {8, 11, 13, 29, 35, 26}  # Para estratégia especial 2
+NUMEROS_ESPECIAIS_2 = {7, 12, 35}
+NUMEROS_PROIBIDOS_2 = {8, 11, 13, 29, 35, 26}
 
-# ... (restante das configurações e funções permanecem iguais)
+# 3. MAPEAMENTO DE CORES (ADICIONE ESTA SEÇÃO)
+CORES = {
+    0: 'G',  # 0 = Verde
+    1: 'R', 2: 'B', 3: 'R', 4: 'B', 5: 'R', 6: 'B', 7: 'R', 8: 'B',
+    9: 'R', 10: 'B', 11: 'B', 12: 'R', 13: 'B', 14: 'R', 15: 'B',
+    16: 'R', 17: 'B', 18: 'R', 19: 'R', 20: 'B', 21: 'R', 22: 'B',
+    23: 'R', 24: 'B', 25: 'R', 26: 'B', 27: 'R', 28: 'B', 29: 'B',
+    30: 'R', 31: 'B', 32: 'R', 33: 'B', 34: 'R', 35: 'B', 36: 'R'
+}
 
+# 4. FUNÇÃO PRINCIPAL (com todas as variáveis definidas)
 def registrar_numero(numero, ignore_clique=False):
     if not ignore_clique:
         if time.time() - st.session_state.ultimo_clique < 0.5:
@@ -37,7 +45,7 @@ def registrar_numero(numero, ignore_clique=False):
     
     if len(st.session_state.historico) > 0:
         numero_anterior = st.session_state.historico[-1]
-        cor_atual = CORES.get(numero, 'G')
+        cor_atual = CORES.get(numero, 'G')  # Agora CORES está definido
         st.session_state.proximas_cores[numero_anterior].append(cor_atual)
         
         if numero_anterior in GRUPO_C2:
@@ -45,23 +53,23 @@ def registrar_numero(numero, ignore_clique=False):
             st.session_state.estrategia_c2[numero_anterior].append(resultado)
             st.session_state.sequencia_c2.append(resultado)
             
-        if numero_anterior in NUMEROS_ESPECIAIS_2:  # Agora devidamente inicializado
+        if numero_anterior in NUMEROS_ESPECIAIS_2:
             resultado = 'R' if numero not in NUMEROS_PROIBIDOS_2 else 'B'
             st.session_state.estrategia_especial2[numero_anterior].append(resultado)
             st.session_state.sequencia_estrategia2.append(resultado)
     
     st.session_state.historico.append(numero)
 
-# ... (restante do código permanece igual)
-
-
+# 5. FUNÇÃO DE FORMATAÇÃO
 def formatar_cor(c):
     if c == 'R':
         return '<span style="color:red">R</span>'
     elif c == 'B':
         return '<span style="color:black">B</span>'
-    else:
+    else:  # G
         return '<span style="color:green">G</span>'
+
+# ... (o restante do seu código de interface permanece igual)
 
 # Interface
 st.title("Rastreamento de Estratégias de Roleta")
