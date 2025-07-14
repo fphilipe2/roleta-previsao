@@ -4,7 +4,7 @@ import time
 from collections import defaultdict, deque
 from io import StringIO
 
-# Configuração inicial
+# Configuração inicial COMPLETA
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'proximas_cores' not in st.session_state:
@@ -13,23 +13,20 @@ if 'estrategia_c2' not in st.session_state:
     st.session_state.estrategia_c2 = defaultdict(lambda: deque(maxlen=100))
 if 'sequencia_c2' not in st.session_state:
     st.session_state.sequencia_c2 = deque(maxlen=1000)
+if 'estrategia_especial2' not in st.session_state:  # Adicione esta inicialização
+    st.session_state.estrategia_especial2 = defaultdict(lambda: deque(maxlen=100))
+if 'sequencia_estrategia2' not in st.session_state:  # Adicione esta inicialização
+    st.session_state.sequencia_estrategia2 = deque(maxlen=1000)
 if 'ultimo_clique' not in st.session_state:
     st.session_state.ultimo_clique = 0
 
-# Definição dos grupos de números (ADICIONE ESTA SEÇÃO)
-GRUPO_C2 = {2, 8, 11, 17, 20, 26, 29, 35}  # Números da estratégia C2
-NUMEROS_ESPECIAIS_1 = GRUPO_C2  # Mantido para compatibilidade
-NUMEROS_ESPECIAIS_2 = {7, 12, 35}  # Números da estratégia 2
-NUMEROS_PROIBIDOS_2 = {8, 11, 13, 29, 35, 26}  # Números proibidos para estratégia 2
+# Definição dos grupos de números
+GRUPO_C2 = {2, 8, 11, 17, 20, 26, 29, 35}
+NUMEROS_ESPECIAIS_1 = GRUPO_C2
+NUMEROS_ESPECIAIS_2 = {7, 12, 35}  # Para estratégia especial 2
+NUMEROS_PROIBIDOS_2 = {8, 11, 13, 29, 35, 26}  # Para estratégia especial 2
 
-# Mapeamento de cores (Roleta Europeia)
-CORES = {
-    0: 'G', 1: 'R', 2: 'B', 3: 'R', 4: 'B', 5: 'R', 6: 'B', 7: 'R', 8: 'B',
-    9: 'R', 10: 'B', 11: 'B', 12: 'R', 13: 'B', 14: 'R', 15: 'B',
-    16: 'R', 17: 'B', 18: 'R', 19: 'R', 20: 'B', 21: 'R', 22: 'B',
-    23: 'R', 24: 'B', 25: 'R', 26: 'B', 27: 'R', 28: 'B', 29: 'B',
-    30: 'R', 31: 'B', 32: 'R', 33: 'B', 34: 'R', 35: 'B', 36: 'R'
-}
+# ... (restante das configurações e funções permanecem iguais)
 
 def registrar_numero(numero, ignore_clique=False):
     if not ignore_clique:
@@ -43,14 +40,12 @@ def registrar_numero(numero, ignore_clique=False):
         cor_atual = CORES.get(numero, 'G')
         st.session_state.proximas_cores[numero_anterior].append(cor_atual)
         
-        # Estratégia C2
         if numero_anterior in GRUPO_C2:
             resultado = 'B' if numero in GRUPO_C2 else 'R'
             st.session_state.estrategia_c2[numero_anterior].append(resultado)
             st.session_state.sequencia_c2.append(resultado)
             
-        # Estratégia 2 (opcional - mantenha se necessário)
-        if numero_anterior in NUMEROS_ESPECIAIS_2:
+        if numero_anterior in NUMEROS_ESPECIAIS_2:  # Agora devidamente inicializado
             resultado = 'R' if numero not in NUMEROS_PROIBIDOS_2 else 'B'
             st.session_state.estrategia_especial2[numero_anterior].append(resultado)
             st.session_state.sequencia_estrategia2.append(resultado)
@@ -58,6 +53,7 @@ def registrar_numero(numero, ignore_clique=False):
     st.session_state.historico.append(numero)
 
 # ... (restante do código permanece igual)
+
 
 def formatar_cor(c):
     if c == 'R':
