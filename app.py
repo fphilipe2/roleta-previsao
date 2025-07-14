@@ -9,18 +9,20 @@ if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'proximas_cores' not in st.session_state:
     st.session_state.proximas_cores = defaultdict(lambda: deque(maxlen=100))
-if 'estrategia_especial1' not in st.session_state:
-    st.session_state.estrategia_especial1 = defaultdict(lambda: deque(maxlen=100))
-if 'sequencia_estrategia1' not in st.session_state:
-    st.session_state.sequencia_estrategia1 = deque(maxlen=1000)
-if 'estrategia_especial2' not in st.session_state:
-    st.session_state.estrategia_especial2 = defaultdict(lambda: deque(maxlen=100))
-if 'sequencia_estrategia2' not in st.session_state:
-    st.session_state.sequencia_estrategia2 = deque(maxlen=1000)
+if 'estrategia_c2' not in st.session_state:
+    st.session_state.estrategia_c2 = defaultdict(lambda: deque(maxlen=100))
+if 'sequencia_c2' not in st.session_state:
+    st.session_state.sequencia_c2 = deque(maxlen=1000)
 if 'ultimo_clique' not in st.session_state:
     st.session_state.ultimo_clique = 0
 
-# Mapeamento de cores
+# Definição dos grupos de números (ADICIONE ESTA SEÇÃO)
+GRUPO_C2 = {2, 8, 11, 17, 20, 26, 29, 35}  # Números da estratégia C2
+NUMEROS_ESPECIAIS_1 = GRUPO_C2  # Mantido para compatibilidade
+NUMEROS_ESPECIAIS_2 = {7, 12, 35}  # Números da estratégia 2
+NUMEROS_PROIBIDOS_2 = {8, 11, 13, 29, 35, 26}  # Números proibidos para estratégia 2
+
+# Mapeamento de cores (Roleta Europeia)
 CORES = {
     0: 'G', 1: 'R', 2: 'B', 3: 'R', 4: 'B', 5: 'R', 6: 'B', 7: 'R', 8: 'B',
     9: 'R', 10: 'B', 11: 'B', 12: 'R', 13: 'B', 14: 'R', 15: 'B',
@@ -41,17 +43,21 @@ def registrar_numero(numero, ignore_clique=False):
         cor_atual = CORES.get(numero, 'G')
         st.session_state.proximas_cores[numero_anterior].append(cor_atual)
         
-        if numero_anterior in NUMEROS_ESPECIAIS_1:
-            resultado = 'R' if numero not in NUMEROS_ESPECIAIS_1 else 'B'
-            st.session_state.estrategia_especial1[numero_anterior].append(resultado)
-            st.session_state.sequencia_estrategia1.append(resultado)
+        # Estratégia C2
+        if numero_anterior in GRUPO_C2:
+            resultado = 'B' if numero in GRUPO_C2 else 'R'
+            st.session_state.estrategia_c2[numero_anterior].append(resultado)
+            st.session_state.sequencia_c2.append(resultado)
             
+        # Estratégia 2 (opcional - mantenha se necessário)
         if numero_anterior in NUMEROS_ESPECIAIS_2:
             resultado = 'R' if numero not in NUMEROS_PROIBIDOS_2 else 'B'
             st.session_state.estrategia_especial2[numero_anterior].append(resultado)
             st.session_state.sequencia_estrategia2.append(resultado)
     
     st.session_state.historico.append(numero)
+
+# ... (restante do código permanece igual)
 
 def formatar_cor(c):
     if c == 'R':
