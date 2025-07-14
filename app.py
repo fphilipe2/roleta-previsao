@@ -85,6 +85,7 @@ with col1:
 with col2:
     if st.button("Registrar", key="botao_registrar_unico"):
         registrar_numero(novo_numero)  # 4 espaços de indentação aqui
+        # Qualquer outra linha dentro deste bloco também deve ter 4 espaços adicionais
 
 # Upload de CSV
 uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
