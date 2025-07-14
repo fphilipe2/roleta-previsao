@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import time
 from collections import defaultdict, deque
 from io import StringIO
 
@@ -8,6 +9,16 @@ if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'proximas_cores' not in st.session_state:
     st.session_state.proximas_cores = defaultdict(lambda: deque(maxlen=100))
+if 'estrategia_especial1' not in st.session_state:  # Estratégia 1 (2,8,11...)
+    st.session_state.estrategia_especial1 = defaultdict(lambda: deque(maxlen=100))
+if 'sequencia_estrategia1' not in st.session_state:
+    st.session_state.sequencia_estrategia1 = deque(maxlen=1000)
+if 'estrategia_especial2' not in st.session_state:  # Estratégia 2 (7,12,35)
+    st.session_state.estrategia_especial2 = defaultdict(lambda: deque(maxlen=100))
+if 'sequencia_estrategia2' not in st.session_state:
+    st.session_state.sequencia_estrategia2 = deque(maxlen=1000)
+if 'ultimo_clique' not in st.session_state:    # Esta linha deve estar no mesmo nível das outras if
+    st.session_state.ultimo_clique = 0         # Esta linha deve estar indentada com 4 espaços
 
 # Mapeamento de cores (Roleta Europeia)
 CORES = {
@@ -19,11 +30,33 @@ CORES = {
     30: 'R', 31: 'B', 32: 'R', 33: 'B', 34: 'R', 35: 'B', 36: 'R'
 }
 
-def registrar_numero(numero):
+def registrar_numero(numero, ignore_clique=False):
+    """
+    ignore_clique: True para carregamento CSV (ignora proteção contra duplo clique)
+    """
+    if not ignore_clique:
+        # Proteção contra duplo clique apenas para cliques manuais
+        if time.time() - st.session_state.ultimo_clique < 0.5:
+            st.warning("Aguarde 0.5 segundos entre os cliques!")
+            return
+        st.session_state.ultimo_clique = time.time()
+    
+    # Restante da função (mantenha igual)
     if len(st.session_state.historico) > 0:
         numero_anterior = st.session_state.historico[-1]
         cor_atual = CORES.get(numero, 'G')
         st.session_state.proximas_cores[numero_anterior].append(cor_atual)
+        
+        if numero_anterior in NUMEROS_ESPECIAIS_1:
+            resultado = 'R' if numero not in NUMEROS_ESPECIAIS_1 else 'B'
+            st.session_state.estrategia_especial1[numero_anterior].append(resultado)
+            st.session_state.sequencia_estrategia1.append(resultado)
+            
+        if numero_anterior in NUMEROS_ESPECIAIS_2:
+            resultado = 'R' if numero not in NUMEROS_PROIBIDOS_2 else 'B'
+            st.session_state.estrategia_especial2[numero_anterior].append(resultado)
+            st.session_state.sequencia_estrategia2.append(resultado)
+    
     st.session_state.historico.append(numero)
 
 def formatar_cor(c):
@@ -34,16 +67,24 @@ def formatar_cor(c):
     else:  # G
         return '<span style="color:green">G</span>'
 
-# Interface
-st.title("Rastreamento de Cores Pós-Número")
-
-# Controles
+# Na interface, modifique a seção dos controles para:
 col1, col2 = st.columns(2)
 with col1:
     novo_numero = st.number_input("Número sorteado (0-36)", min_value=0, max_value=36)
+
 with col2:
-    if st.button("Registrar"):
-        registrar_numero(novo_numero)
+    if st.button("Registrar", key="botao_registrar_unico"):
+        registrar_numero(novo_numero)  # Esta linha deve estar indentada com 4 espaços
+
+# Controles
+col1, col2 = st.columns(2)
+
+with col1:
+    novo_numero = st.number_input("Número sorteado (0-36)", min_value=0, max_value=36)
+
+with col2:
+    if st.button("Registrar", key="botao_registrar_unico"):
+        registrar_numero(novo_numero)  # 4 espaços de indentação aqui
 
 # Upload de CSV
 uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
@@ -51,8 +92,9 @@ if uploaded_file:
     try:
         dados = pd.read_csv(uploaded_file)
         if 'Número' in dados.columns:
+            # Usamos ignore_clique=True para o carregamento CSV
             for num in dados['Número'].tolist():
-                registrar_numero(num)
+                registrar_numero(num, ignore_clique=True)
             st.success("Histórico carregado com sucesso!")
         else:
             st.error("O arquivo CSV precisa ter uma coluna chamada 'Número'")
