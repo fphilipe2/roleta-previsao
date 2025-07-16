@@ -134,28 +134,7 @@ if st.session_state.historico:
     .normal {
         background-color: #f0f0f0;
     }
-    </style>
-    <div style='text-align: center;'>
-    """
-    
-    for num in range(37):
-        classe = "aposta" if num in numeros_aposta else "normal"
-        roleta_layout += f"<div class='number {classe}'>{num}</div>"
-    
-    roleta_layout += "</div>"
-    st.markdown(roleta_layout, unsafe_allow_html=True)
-    
-    # Histórico recente
-    st.subheader("Últimos números sorteados")
-    st.write(" → ".join(map(str, st.session_state.historico[-10:])))
-else:
-    st.warning("Registre um número ou carregue um histórico para ver as apostas")
-
-# Exportar histórico
-if st.button("📥 Exportar Histórico"):
-    if st.session_state.historico:
-        df = pd.DataFrame({'Número': st.session_state.historico})
-        csv = df.to_csv(index=False).encode('utf-8')
+    <
         st.download_button(
             label="Baixar CSV",
             data=csv,
