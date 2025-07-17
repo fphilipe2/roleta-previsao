@@ -59,8 +59,8 @@ def registrar_numero(numero):
             st.session_state.previsoes[num_anterior].pop(0)
         st.session_state.previsoes[num_anterior].append(resultado)
     
-    # Armazena o novo número (máximo 100 no histórico para demonstração)
-    if len(st.session_state.historico) >= 100:
+    # Armazena o novo número (máximo 1000 no histórico para demonstração)
+    if len(st.session_state.historico) >= 1000:
         st.session_state.historico.pop(0)
     st.session_state.historico.append(numero)
 
