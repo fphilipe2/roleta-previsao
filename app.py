@@ -84,18 +84,34 @@ with col2:
     if st.button("Registrar"):
         registrar_numero(novo_numero)
 
-# Upload de CSV
-uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
+# Adicione isso antes do uploader
+encoding_option = st.selectbox(
+    "Codificação do arquivo",
+    ['Auto-detect', 'UTF-8', 'latin-1', 'iso-8859-1', 'windows-1252'],
+    index=0
+)
+
+# E modifique o bloco de upload assim:
 if uploaded_file:
     try:
-        dados = pd.read_csv(uploaded_file)
+        if encoding_option == 'Auto-detect':
+            try:
+                dados = pd.read_csv(uploaded_file, encoding='utf-8')
+            except UnicodeDecodeError:
+                try:
+                    dados = pd.read_csv(uploaded_file, encoding='latin-1')
+                except:
+                    dados = pd.read_csv(uploaded_file, encoding='iso-8859-1')
+        else:
+            dados = pd.read_csv(uploaded_file, encoding=encoding_option)
+            
         if 'Número' in dados.columns:
             st.session_state.historico = dados['Número'].tolist()
             st.success(f"Histórico carregado! {len(dados)} registros.")
         else:
             st.error("O arquivo precisa ter a coluna 'Número'")
     except Exception as e:
-        st.error(f"Erro ao ler arquivo: {e}")
+        st.error(f"Erro ao ler arquivo: {e}\nTente outra codificação ou salve o arquivo como UTF-8.")
 
 # Exibição da estratégia
 if st.session_state.historico:
