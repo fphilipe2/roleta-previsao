@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import pandas as pd
 
 # Configuração inicial
@@ -7,8 +7,8 @@ if 'historico' not in st.session_state:
 if 'resultados_por_numero' not in st.session_state:
     st.session_state.resultados_por_numero = {n: [] for n in range(37)}
 
-# ESTRATÉGIA (com acento)
-ESTRATÉGIA = {
+# Estratégia completa - ATENÇÃO: usar sempre ESTRATEGIA (sem acento)
+ESTRATEGIA = {
     0: [0, 5, 9, 10, 17, 22, 23, 25, 26, 31, 32, 34],
     1: [1, 2, 4, 7, 11, 12, 13, 28, 20, 21, 33, 36],
     2: [1, 2, 3, 8, 11, 12, 14, 20, 21, 25, 30, 35],
@@ -51,13 +51,18 @@ ESTRATÉGIA = {
 def registrar_numero(numero):
     # Limita o histórico a 1000 resultados
     if len(st.session_state.historico) >= 1000:
-        st.session_state.historico.pop(0)
+        removed = st.session_state.historico.pop(0)
+        # Remove também do resultados_por_numero
+        if st.session_state.resultados_por_numero[removed]:
+            st.session_state.resultados_por_numero[removed].pop(0)
     
     st.session_state.historico.append(numero)
     
     # Atualiza resultados por número
-    resultado = "1" if numero == 0 else "X" if numero in ESTRATEGIA.get(numero, []) else ""
-    if len(st.session_state.resultados_por_numero[numero]) >= 20:  # Limita a 20 por número
+    resultado = "1" if numero == 0 else "X" if numero in ESTRATEGIA.get(numero, []) else "-"
+    st.session_state.resultados_por_numero[numero].append(resultado)
+    # Limita a 20 resultados por número
+    if len(st.session_state.resultados_por_numero[numero]) > 20:
         st.session_state.resultados_por_numero[numero].pop(0)
     st.session_state.resultados_por_numero[numero].append(resultado)
 
