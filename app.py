@@ -43,35 +43,45 @@ REGRAS_PERSONALIZADAS = {
     36: [1, 2, 4, 7, 11, 12, 13, 28, 20, 21, 33, 36]
 }
 
-ARQUIVO_RESULTADOS = "dados.csv"
-ARQUIVO_ESTRATEGIAS = "historico_estrategias.csv"
+def analisar_resultados(sequencia):
+    resultado = []
+    for i in range(len(sequencia) - 1):
+        atual = sequencia[i]
+        proximo = sequencia[i + 1]
+        proibidos = estrategia_proibidos.get(atual, [])
+        if proximo in proibidos:
+            resultado.append("X")
+        else:
+            resultado.append("1")
+    return ''.join(resultado)
 
-st.title("Roleta - Previsão e Simulação de Banca")
+st.title("Analisador de Estratégia Roleta")
 
-# Entrada manual
-st.subheader("🎯 Inserir Número Manualmente")
-numero_manual = st.number_input("Digite o número da roleta (0-36):", min_value=0, max_value=36, step=1)
-if st.button("Adicionar Número"):
-    if os.path.exists(ARQUIVO_RESULTADOS):
-        df = pd.read_csv(ARQUIVO_RESULTADOS)
-    else:
-        df = pd.DataFrame(columns=['numero'])
-    df = pd.concat([df, pd.DataFrame({'numero': [numero_manual]})], ignore_index=True)
-    df.to_csv(ARQUIVO_RESULTADOS, index=False)
-    st.success(f"Número {numero_manual} adicionado com sucesso!")
+opcao = st.radio("Escolha a forma de entrada:", ["Inserir manualmente", "Carregar arquivo CSV"])
 
-    if len(df) >= 2:
-        anterior = df['numero'].iloc[-2]
-        proibidos = REGRAS_PERSONALIZADAS.get(anterior, [])
-        resultado = '1' if numero_manual not in proibidos else 'X'
-        st.info(f"Resultado do número inserido: {'GREEN' if resultado == '1' else 'RED'}")
+if opcao == "Inserir manualmente":
+    entrada = st.text_input("Digite a sequência de números separados por vírgula (ex: 1,2,3,4,5)")
 
-        historico = pd.DataFrame({
-            'numero': [numero_manual],
-            'estrategia1': [resultado]
-        })
-        if os.path.exists(ARQUIVO_ESTRATEGIAS):
-            hist_ant = pd.read_csv(ARQUIVO_ESTRATEGIAS)
-            historico = pd.concat([hist_ant, historico], ignore_index=True)
-        historico.to_csv(ARQUIVO_ESTRATEGIAS, index=False)
-        st.dataframe(historico.tail(10))
+    if st.button("Analisar"):
+        try:
+            numeros = list(map(int, entrada.split(",")))
+            resultado = analisar_resultados(numeros)
+            st.subheader("Resultado:")
+            st.code(resultado)
+        except:
+            st.error("Entrada inválida. Verifique se digitou números separados por vírgula.")
+
+else:
+    arquivo = st.file_uploader("Envie um arquivo CSV com uma coluna chamada 'número'", type=["csv"])
+    if arquivo:
+        try:
+            df = pd.read_csv(arquivo)
+            if "número" not in df.columns:
+                st.error("O CSV deve conter uma coluna chamada 'número'")
+            else:
+                numeros = df["número"].dropna().astype(int).tolist()
+                resultado = analisar_resultados(numeros)
+                st.subheader("Resultado:")
+                st.code(resultado)
+        except Exception as e:
+            st.error(f"Erro ao processar o arquivo: {e}")
