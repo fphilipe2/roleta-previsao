@@ -48,31 +48,46 @@ ESTRATEGIA = {
     36: [1, 2, 4, 7, 11, 12, 13, 28, 20, 21, 33, 36]
 }
 
+import streamlit as st
+import pandas as pd
+
+# Configuração inicial
+if 'historico' not in st.session_state:
+    st.session_state.historico = []
+if 'resultados' not in st.session_state:
+    st.session_state.resultados = {n: [] for n in range(37)}
+
+# Estratégia completa
+ESTRATEGIA = {
+    0: [0, 5, 9, 10, 17, 22, 23, 25, 26, 31, 32, 34],
+    1: [1, 2, 4, 7, 11, 12, 13, 28, 20, 21, 33, 36],
+    # ... (insira todo o dicionário aqui)
+    36: [1, 2, 4, 7, 11, 12, 13, 28, 20, 21, 33, 36]
+}
+
 def registrar_numero(numero):
-    # Limita o histórico a 1000 resultados
+    # Verifica a previsão para o número anterior
+    if len(st.session_state.historico) > 0:
+        ultimo = st.session_state.historico[-1]
+        previsao = "1" if numero in ESTRATEGIA.get(ultimo, []) else "X"
+        
+        # Armazena apenas os últimos 20 resultados por número
+        if len(st.session_state.resultados[ultimo]) >= 20:
+            st.session_state.resultados[ultimo].pop(0)
+        st.session_state.resultados[ultimo].append(previsao)
+    
+    # Armazena o novo número (máximo 1000 no histórico)
     if len(st.session_state.historico) >= 1000:
-        removed = st.session_state.historico.pop(0)
-        # Remove também do resultados_por_numero
-        if st.session_state.resultados_por_numero[removed]:
-            st.session_state.resultados_por_numero[removed].pop(0)
-    
+        st.session_state.historico.pop(0)
     st.session_state.historico.append(numero)
-    
-    # Atualiza resultados por número
-    resultado = "1" if numero == 0 else "X" if numero in ESTRATEGIA.get(numero, []) else "-"
-    st.session_state.resultados_por_numero[numero].append(resultado)
-    # Limita a 20 resultados por número
-    if len(st.session_state.resultados_por_numero[numero]) > 20:
-        st.session_state.resultados_por_numero[numero].pop(0)
-    st.session_state.resultados_por_numero[numero].append(resultado)
 
 # Interface
-st.title("Análise de Roleta")
+st.title("Análise de Previsões na Roleta")
 
 # Controles
 col1, col2 = st.columns(2)
 with col1:
-    novo_numero = st.number_input("Último número (0-36)", min_value=0, max_value=36)
+    novo_numero = st.number_input("Último número sorteado (0-36)", min_value=0, max_value=36)
 with col2:
     if st.button("Registrar"):
         registrar_numero(novo_numero)
@@ -90,42 +105,38 @@ if uploaded_file is not None:
         st.error(f"Erro ao ler arquivo: {e}")
 
 # Exibição dos resultados
-if st.session_state.historico:
+if len(st.session_state.historico) > 1:  # Precisa de pelo menos 2 números para ter uma previsão
     st.subheader("Resultados por Número")
     
-    # Dividir em 3 colunas
     col1, col2, col3 = st.columns(3)
     
     with col1:
         st.write("### 0-11")
         for n in range(0, 12):
-            res = " ".join(st.session_state.resultados_por_numero[n])
-            st.write(f"{n}: {res}")
+            st.write(f"{n}: {' '.join(st.session_state.resultados[n])}")
     
     with col2:
         st.write("### 12-24")
         for n in range(12, 25):
-            res = " ".join(st.session_state.resultados_por_numero[n])
-            st.write(f"{n}: {res}")
+            st.write(f"{n}: {' '.join(st.session_state.resultados[n])}")
     
     with col3:
         st.write("### 25-36")
         for n in range(25, 37):
-            res = " ".join(st.session_state.resultados_por_numero[n])
-            st.write(f"{n}: {res}")
+            st.write(f"{n}: {' '.join(st.session_state.resultados[n])}")
     
-    # Sequência geral
-    st.subheader("Sequência Geral")
+    # Sequência geral das previsões
+    st.subheader("Sequência de Previsões")
     sequencia = []
-    for num in st.session_state.historico:
-        if num in ESTRATEGIA.get(num, []):
-            sequencia.append("1" if num == 0 else "X")
+    for i in range(1, len(st.session_state.historico)):
+        num_anterior = st.session_state.historico[i-1]
+        num_atual = st.session_state.historico[i]
+        sequencia.append("1" if num_atual in ESTRATEGIA.get(num_anterior, []) else "X")
     st.code("".join(sequencia[-100:]))  # Mostra os últimos 100 resultados
-    
-    # Limpar histórico
+
     if st.button("Limpar Histórico"):
         st.session_state.historico = []
-        st.session_state.resultados_por_numero = {n: [] for n in range(37)}
+        st.session_state.resultados = {n: [] for n in range(37)}
         st.experimental_rerun()
 else:
-    st.info("Registre números ou carregue um histórico para começar")
+    st.info("Registre pelo menos 2 números para ver as previsões")
