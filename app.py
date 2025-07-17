@@ -71,7 +71,17 @@ st.title("Previsões de Roleta Corrigidas")
 numero = st.number_input("Último número sorteado (0-36)", min_value=0, max_value=36)
 if st.button("Registrar"):
     registrar_numero(numero)
-
+# Upload de CSV
+uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
+if uploaded_file is not None:
+    try:
+        dados = pd.read_csv(uploaded_file)
+        if 'Número' in dados.columns:
+            for num in dados['Número']:
+                registrar_numero(num)
+            st.success(f"Histórico carregado! {len(dados)} registros.")
+    except Exception as e:
+        st.error(f"Erro ao ler arquivo: {e}")
 # Exibição dos resultados
 if len(st.session_state.historico) > 1:
     st.subheader("Resultados por Número")
