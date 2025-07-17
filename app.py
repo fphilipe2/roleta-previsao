@@ -6,6 +6,9 @@ if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'previsoes' not in st.session_state:
     st.session_state.previsoes = {n: [] for n in range(37)}
+if 'sequencia_geral' not in st.session_state:
+    st.session_state.sequencia_geral = ""
+
 
 # Estratégia completa - ATENÇÃO: usar sempre ESTRATEGIA (sem acento)
 ESTRATEGIA = {
@@ -49,22 +52,26 @@ ESTRATEGIA = {
 }
 
 def registrar_numero(numero):
+    # Verifica se é número válido
+    if numero not in range(37):
+        st.error("Número inválido! Deve ser entre 0 e 36")
+        return
+    
     # Verifica a previsão para o número anterior
     if len(st.session_state.historico) > 0:
         num_anterior = st.session_state.historico[-1]
         resultado = "1" if numero in ESTRATEGIA.get(num_anterior, []) else "X"
         
-        # Armazena nos resultados por número
+        # Atualiza resultados por número
         if len(st.session_state.previsoes[num_anterior]) >= 20:
             st.session_state.previsoes[num_anterior].pop(0)
         st.session_state.previsoes[num_anterior].append(resultado)
         
-        # Adiciona à sequência geral
+        # Atualiza sequência geral
         st.session_state.sequencia_geral += resultado
     
-    # Armazena o novo número
+    # Armazena o novo número (limite de 1000 no histórico)
     st.session_state.historico.append(numero)
-    # Limita o histórico a 1000 registros
     if len(st.session_state.historico) > 1000:
         st.session_state.historico.pop(0)
 
@@ -85,6 +92,11 @@ if uploaded_file is not None:
     try:
         dados = pd.read_csv(uploaded_file)
         if 'Número' in dados.columns:
+            # Limpa o estado antes de carregar novo histórico
+            st.session_state.historico = []
+            st.session_state.previsoes = {n: [] for n in range(37)}
+            st.session_state.sequencia_geral = ""
+            
             for num in dados['Número']:
                 registrar_numero(num)
             st.success(f"Histórico carregado! {len(dados)} registros.")
@@ -111,18 +123,33 @@ if len(st.session_state.historico) > 1:
         st.write("### 25-36")
         for n in range(25, 37):
             st.write(f"{n}: {' '.join(st.session_state.previsoes[n])}")
-    
+    # Upload de CSV
+uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
+if uploaded_file is not None:
+    try:
+        dados = pd.read_csv(uploaded_file)
+        if 'Número' in dados.columns:
+            # Limpa o estado antes de carregar novo histórico
+            st.session_state.historico = []
+            st.session_state.previsoes = {n: [] for n in range(37)}
+            st.session_state.sequencia_geral = ""
+            
+            for num in dados['Número']:
+                registrar_numero(num)
+            st.success(f"Histórico carregado! {len(dados)} registros.")
+    except Exception as e:
+        st.error(f"Erro ao ler arquivo: {e}")
     # Sequência geral compacta
     st.subheader("Sequência Geral Compacta")
     st.code(st.session_state.sequencia_geral)
     
-    # Exemplo de como deve funcionar
-    st.subheader("Exemplo Correto")
+    # Exemplo de funcionamento
+    st.subheader("Exemplo")
     st.write("Sequência [1, 2, 3, 4, 2, 1] gera:")
     st.write("1: 1 (porque 2 está na lista do 1)")
     st.write("2: 1 (porque 3 está na lista do 2)")
-    st.write("3: X (porque 4 NÃO está na lista do 3)")
-    st.write("4: X (porque 2 NÃO está na lista do 4)")
+    st.write("3: X (porque 4 não está na lista do 3)")
+    st.write("4: X (porque 2 não está na lista do 4)")
     st.write("2: 1 (porque 1 está na lista do 2)")
     st.write("Sequência geral: 111X1")
     
