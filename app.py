@@ -1,9 +1,15 @@
 import streamlit as st
 import pandas as pd
-import os
+from collections import deque
 
-# Regras atualizadas conforme o histórico fornecido
-REGRAS_PERSONALIZADAS = {
+# Configuração inicial
+if 'historico' not in st.session_state:
+    st.session_state.historico = []
+if 'ultimo_clique' not in st.session_state:
+    st.session_state.ultimo_clique = 0
+
+# Estratégia completa (0-36)
+ESTRATEGIA = {
     0: [0, 5, 9, 10, 17, 22, 23, 25, 26, 31, 32, 34],
     1: [1, 2, 4, 7, 11, 12, 13, 28, 20, 21, 33, 36],
     2: [1, 2, 3, 8, 11, 12, 14, 20, 21, 25, 30, 35],
@@ -43,51 +49,133 @@ REGRAS_PERSONALIZADAS = {
     36: [1, 2, 4, 7, 11, 12, 13, 28, 20, 21, 33, 36]
 }
 
-def analisar_resultados(sequencia):
-    resultado = []
-    for i in range(len(sequencia) - 1):
-        atual = sequencia[i]
-        proximo = sequencia[i + 1]
-        proibidos = estrategia_proibidos.get(atual, [])
-        if proximo in proibidos:
-            resultado.append("X")
-        else:
-            resultado.append("1")
-    return ''.join(resultado)
+OBSERVACOES = {
+    0: "Foco em números baixos e médios",
+    1: "Mistura de baixos e altos",
+    2: "Inclui números 'vizinhos' no cilindro",
+    3: "Aposta em laterais e finais",
+    4: "Dispersão equilibrada",
+    5: "Transição para números médios",
+    6: "Foco em colunas do meio",
+    7: "Números laterais e primes",
+    8: "Combinação de altos e baixos",
+    9: "Aposta em diagonais virtuais",
+    10: "Foco em terços superiores",
+    11: "Mistura de colunas e dezenas",
+    12: "Números centrais e finais",
+    13: "Dispersão ampla",
+    14: "Inclui o zero para cobertura extra",
+    15: "Reinicia ciclo com números baixos",
+    # ... (complete com as observações para 16-36)
+    36: "Combinação fechada com zero"
+}
 
-st.title("Analisador de Estratégia Roleta")
+def registrar_numero(numero):
+    st.session_state.historico.append(numero)
 
-opcao = st.radio("Escolha a forma de entrada:", ["Inserir manualmente", "Carregar arquivo CSV"])
+# Interface
+st.title("Estratégia de Apostas na Roleta")
 
-if opcao == "Inserir manualmente":
-    entrada = st.text_input("Digite a sequência de números separados por vírgula (ex: 1,2,3,4,5)")
+# Controles
+col1, col2 = st.columns(2)
+with col1:
+    novo_numero = st.number_input("Último número sorteado (0-36)", min_value=0, max_value=36)
+with col2:
+    if st.button("Registrar"):
+        registrar_numero(novo_numero)
 
-    if st.button("Analisar"):
-        try:
-            numeros = list(map(int, entrada.split(",")))
-            resultado = analisar_resultados(numeros)
-            st.subheader("Resultado:")
-            st.code(resultado)
-        except:
-            st.error("Entrada inválida. Verifique se digitou números separados por vírgula.")
-
-else:
-    arquivo = st.file_uploader("Envie um arquivo CSV com uma coluna chamada 'número'", type=["csv"])
-    if arquivo:
-        try:
-            with st.expander("Carregar arquivo"):
+# Upload de CSV
+uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
+if uploaded_file:
     try:
-        df = pd.read_csv(arquivo_carregado)
-    except UnicodeDecodeError:
-        df = pd.read_csv(arquivo_carregado, encoding='ISO-8859-1')
+        dados = pd.read_csv(uploaded_file)
+        if 'Número' in dados.columns:
+            st.session_state.historico = dados['Número'].tolist()
+            st.success(f"Histórico carregado! {len(dados)} registros.")
+        else:
+            st.error("O arquivo precisa ter a coluna 'Número'")
+    except Exception as e:
+        st.error(f"Erro ao ler arquivo: {e}")
 
-
-            if "número" not in df.columns:
-                st.error("O CSV deve conter uma coluna chamada 'número'")
+# Exibição da estratégia
+if st.session_state.historico:
+    ultimo_numero = st.session_state.historico[-1]
+    numeros_aposta = ESTRATEGIA.get(ultimo_numero, [])
+    observacao = OBSERVACOES.get(ultimo_numero, "")
+    
+    st.subheader(f"Último número sorteado: {ultimo_numero}")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Números para apostar:**")
+        st.write(numeros_aposta)
+    with col2:
+        st.markdown("**Observações:**")
+        st.write(observacao)
+    
+    # Visualização dos números no layout da roleta
+    st.subheader("Visualização na Roleta")
+    roleta_layout = """
+    <style>
+    .number {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        margin: 2px;
+        text-align: center;
+        line-height: 40px;
+        border-radius: 50%;
+        font-weight: bold;
+    }
+    .green {
+        background-color: #4CAF50;
+        color: white;
+    }
+    .red {
+        background-color: #FF5252;
+        color: white;
+    }
+    .normal {
+        background-color: #f0f0f0;
+    }
+    </style>
+    <div style='text-align: center;'>
+    """
+    
+    for num in range(37):
+        if num in numeros_aposta:
+            # 0 is green, others are red
+            if num == 0:
+                classe = "green"
+                display = "0"
             else:
-                numeros = df["número"].dropna().astype(int).tolist()
-                resultado = analisar_resultados(numeros)
-                st.subheader("Resultado:")
-                st.code(resultado)
-        except Exception as e:
-            st.error(f"Erro ao processar o arquivo: {e}")
+                classe = "red"
+                display = "X"
+        else:
+            classe = "normal"
+            display = str(num)
+        
+        roleta_layout += f"<div class='number {classe}'>{display}</div>"
+    
+    roleta_layout += "</div>"
+    st.markdown(roleta_layout, unsafe_allow_html=True)
+    
+    # Histórico recente
+    st.subheader("Últimos números sorteados")
+    st.write(" → ".join(map(str, st.session_state.historico[-10:])))
+else:
+    st.warning("Registre um número ou carregue um histórico para ver as apostas")
+
+# Exportar histórico
+if st.button("📥 Exportar Histórico"):
+    if st.session_state.historico:
+        df = pd.DataFrame({'Número': st.session_state.historico})
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Baixar CSV",
+            data=csv,
+            file_name='historico_roleta.csv',
+            mime='text/csv'
+        )
+    else:
+        st.warning("Nenhum dado para exportar")
