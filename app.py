@@ -118,3 +118,24 @@ if len(st.session_state.historico) > 1:
         st.experimental_rerun()
 else:
     st.info("Registre pelo menos 2 números para ver as previsões")
+    # Sequência geral compacta
+    st.subheader("Sequência Geral Compacta")
+    st.code(st.session_state.sequencia_geral)
+    
+    # Exemplo de como deve funcionar
+    st.subheader("Exemplo Correto")
+    st.write("Sequência [1, 2, 3, 4, 2, 1] gera:")
+    st.write("1: 1 (porque 2 está na lista do 1)")
+    st.write("2: 1 (porque 3 está na lista do 2)")
+    st.write("3: X (porque 4 NÃO está na lista do 3)")
+    st.write("4: X (porque 2 NÃO está na lista do 4)")
+    st.write("2: 1 (porque 1 está na lista do 2)")
+    st.write("Sequência geral: 111X1")
+    
+    if st.button("Limpar Histórico"):
+        st.session_state.historico = []
+        st.session_state.previsoes = {n: [] for n in range(37)}
+        st.session_state.sequencia_geral = ""
+        st.experimental_rerun()
+else:
+    st.info("Registre pelo menos 2 números para ver as previsões")
