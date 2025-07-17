@@ -54,23 +54,31 @@ def registrar_numero(numero):
         num_anterior = st.session_state.historico[-1]
         resultado = "1" if numero in ESTRATEGIA.get(num_anterior, []) else "X"
         
-        # Armazena apenas os últimos 1000 resultados por número
-        if len(st.session_state.previsoes[num_anterior]) >= 1000:
+        # Armazena nos resultados por número
+        if len(st.session_state.previsoes[num_anterior]) >= 20:
             st.session_state.previsoes[num_anterior].pop(0)
         st.session_state.previsoes[num_anterior].append(resultado)
+        
+        # Adiciona à sequência geral
+        st.session_state.sequencia_geral += resultado
     
-    # Armazena o novo número (máximo 1000 no histórico para demonstração)
-    if len(st.session_state.historico) >= 1000:
-        st.session_state.historico.pop(0)
+    # Armazena o novo número
     st.session_state.historico.append(numero)
+    # Limita o histórico a 1000 registros
+    if len(st.session_state.historico) > 1000:
+        st.session_state.historico.pop(0)
 
 # Interface
-st.title("Previsões de Roleta Corrigidas")
+st.title("Sistema de Previsão de Roleta")
 
 # Controles
-numero = st.number_input("Último número sorteado (0-36)", min_value=0, max_value=36)
-if st.button("Registrar"):
-    registrar_numero(numero)
+col1, col2 = st.columns(2)
+with col1:
+    novo_numero = st.number_input("Último número (0-36)", min_value=0, max_value=36)
+with col2:
+    if st.button("Registrar"):
+        registrar_numero(novo_numero)
+
 # Upload de CSV
 uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
 if uploaded_file is not None:
@@ -82,6 +90,7 @@ if uploaded_file is not None:
             st.success(f"Histórico carregado! {len(dados)} registros.")
     except Exception as e:
         st.error(f"Erro ao ler arquivo: {e}")
+
 # Exibição dos resultados
 if len(st.session_state.historico) > 1:
     st.subheader("Resultados por Número")
@@ -103,21 +112,6 @@ if len(st.session_state.historico) > 1:
         for n in range(25, 37):
             st.write(f"{n}: {' '.join(st.session_state.previsoes[n])}")
     
-    # Exemplo com a sequência [1, 2, 3, 4, 2, 1]
-    st.subheader("Exemplo Correto")
-    st.write("Para a sequência [1, 2, 3, 4, 2, 1]:")
-    st.write("1: 1 (porque 2 está na lista do 1)")
-    st.write("2: 1 (porque 3 está na lista do 2)")
-    st.write("3: X (porque 4 NÃO está na lista do 3)")
-    st.write("4: X (porque 2 NÃO está na lista do 4)")
-    st.write("2: 1 (porque 1 está na lista do 2)")
-    
-    if st.button("Limpar Histórico"):
-        st.session_state.historico = []
-        st.session_state.previsoes = {n: [] for n in range(37)}
-        st.experimental_rerun()
-else:
-    st.info("Registre pelo menos 2 números para ver as previsões")
     # Sequência geral compacta
     st.subheader("Sequência Geral Compacta")
     st.code(st.session_state.sequencia_geral)
