@@ -75,10 +75,12 @@ else:
     arquivo = st.file_uploader("Envie um arquivo CSV com uma coluna chamada 'número'", type=["csv"])
     if arquivo:
         try:
-            try:
-    df = pd.read_csv(arquivo_carregado)
-except UnicodeDecodeError:
-    df = pd.read_csv(arquivo_carregado, encoding='ISO-8859-1')
+            with st.expander("Carregar arquivo"):
+    try:
+        df = pd.read_csv(arquivo_carregado)
+    except UnicodeDecodeError:
+        df = pd.read_csv(arquivo_carregado, encoding='ISO-8859-1')
+
 
             if "número" not in df.columns:
                 st.error("O CSV deve conter uma coluna chamada 'número'")
