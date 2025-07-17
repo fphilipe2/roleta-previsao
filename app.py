@@ -62,7 +62,7 @@ def registrar_numero(numero):
         resultado = "1" if numero in ESTRATEGIA[ultimo_numero] else "X"
         
         # Atualiza as previsões para o último número
-        if len(st.session_state.previsoes[ultimo_numero]) >= 20:
+        if len(st.session_state.previsoes[ultimo_numero]) >= 1000:
             st.session_state.previsoes[ultimo_numero].pop(0)
         st.session_state.previsoes[ultimo_numero].append(resultado)
         
