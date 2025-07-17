@@ -52,111 +52,53 @@ ESTRATEGIA = {
 }
 
 def registrar_numero(numero):
-    # Verifica se é número válido
     if numero not in range(37):
         st.error("Número inválido! Deve ser entre 0 e 36")
         return
     
-    # Verifica a previsão para o número anterior
     if len(st.session_state.historico) > 0:
         num_anterior = st.session_state.historico[-1]
         resultado = "1" if numero in ESTRATEGIA.get(num_anterior, []) else "X"
         
-        # Atualiza resultados por número
         if len(st.session_state.previsoes[num_anterior]) >= 20:
             st.session_state.previsoes[num_anterior].pop(0)
         st.session_state.previsoes[num_anterior].append(resultado)
-        
-        # Atualiza sequência geral
         st.session_state.sequencia_geral += resultado
     
-    # Armazena o novo número (limite de 1000 no histórico)
     st.session_state.historico.append(numero)
     if len(st.session_state.historico) > 1000:
         st.session_state.historico.pop(0)
 
-# Interface
-st.title("Sistema de Previsão de Roleta")
+# Interface principal
+def main():
+    st.title("Sistema de Previsão de Roleta")
 
-# Controles
-col1, col2 = st.columns(2)
-with col1:
-    novo_numero = st.number_input("Último número (0-36)", min_value=0, max_value=36)
-with col2:
-    if st.button("Registrar"):
-        registrar_numero(novo_numero)
-
-# Upload de CSV
-uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
-if uploaded_file is not None:
-    try:
-        dados = pd.read_csv(uploaded_file)
-        if 'Número' in dados.columns:
-            # Limpa o estado antes de carregar novo histórico
-            st.session_state.historico = []
-            st.session_state.previsoes = {n: [] for n in range(37)}
-            st.session_state.sequencia_geral = ""
-            
-            for num in dados['Número']:
-                registrar_numero(num)
-            st.success(f"Histórico carregado! {len(dados)} registros.")
-    except Exception as e:
-        st.error(f"Erro ao ler arquivo: {e}")
-
-# Exibição dos resultados
-if len(st.session_state.historico) > 1:
-    st.subheader("Resultados por Número")
-    
-    col1, col2, col3 = st.columns(3)
-    
+    # Controles - usando keys únicas
+    col1, col2 = st.columns(2)
     with col1:
-        st.write("### 0-11")
-        for n in range(0, 12):
-            st.write(f"{n}: {' '.join(st.session_state.previsoes[n])}")
-    
+        novo_numero = st.number_input("Último número (0-36)", 
+                                    min_value=0, 
+                                    max_value=36,
+                                    key="num_input")
     with col2:
-        st.write("### 12-24")
-        for n in range(12, 25):
-            st.write(f"{n}: {' '.join(st.session_state.previsoes[n])}")
+        if st.button("Registrar", key="registrar_btn"):
+            registrar_numero(novo_numero)
+
+    # Upload de CSV - com key única
+    uploaded_file = st.file_uploader("Carregar histórico (CSV)", 
+                                   type="csv",
+                                   key="csv_uploader")
     
-    with col3:
-        st.write("### 25-36")
-        for n in range(25, 37):
-            st.write(f"{n}: {' '.join(st.session_state.previsoes[n])}")
-    # Upload de CSV
-uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
-if uploaded_file is not None:
-    try:
-        dados = pd.read_csv(uploaded_file)
-        if 'Número' in dados.columns:
-            # Limpa o estado antes de carregar novo histórico
-            st.session_state.historico = []
-            st.session_state.previsoes = {n: [] for n in range(37)}
-            st.session_state.sequencia_geral = ""
-            
-            for num in dados['Número']:
-                registrar_numero(num)
-            st.success(f"Histórico carregado! {len(dados)} registros.")
-    except Exception as e:
-        st.error(f"Erro ao ler arquivo: {e}")
-    # Sequência geral compacta
-    st.subheader("Sequência Geral Compacta")
-    st.code(st.session_state.sequencia_geral)
-    
-    # Exemplo de funcionamento
-    st.subheader("Exemplo")
-    st.write("Sequência [1, 2, 3, 4, 2, 1] gera:")
-    st.write("1: 1 (porque 2 está na lista do 1)")
-    st.write("2: 1 (porque 3 está na lista do 2)")
-    st.write("3: X (porque 4 não está na lista do 3)")
-    st.write("4: X (porque 2 não está na lista do 4)")
-    st.write("2: 1 (porque 1 está na lista do 2)")
-    st.write("Sequência geral: 111X1")
-    
-    if st.button("Limpar Histórico"):
-        st.session_state.historico = []
-        st.session_state.previsoes = {n: [] for n in range(37)}
-        st.session_state.sequencia_geral = ""
-        st.experimental_rerun()
-else:
-    st.info("Registre pelo menos 2 números para ver as previsões")
+    if uploaded_file is not None:
+        try:
+            dados = pd.read_csv(uploaded_file)
+            if 'Número' in dados.columns:
+                st.session_state.historico = []
+                st.session_state.previsoes = {n: [] for n in range(37)}
+                st.session_state.sequencia_geral = ""
+                
+                for num in dados['Número']:
+                    registrar_numero(num)
+                st.success(f"Histórico carregado! {len(dados)} registros.")
+        except Exception as e:
+            st.error(f"Erro ao ler arquivo: {e}")
