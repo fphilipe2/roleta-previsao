@@ -84,34 +84,28 @@ with col2:
     if st.button("Registrar"):
         registrar_numero(novo_numero)
 
-# Adicione isso antes do uploader
-encoding_option = st.selectbox(
-    "Codificação do arquivo",
-    ['Auto-detect', 'UTF-8', 'latin-1', 'iso-8859-1', 'windows-1252'],
-    index=0
-)
+# Upload de CSV - AGORA CORRETAMENTE POSICIONADO
+uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
 
-# E modifique o bloco de upload assim:
-if uploaded_file:
+# Processamento do arquivo carregado
+if uploaded_file is not None:  # Esta é a verificação correta
     try:
-        if encoding_option == 'Auto-detect':
+        # Tenta várias codificações comuns
+        for encoding in ['utf-8', 'latin-1', 'iso-8859-1', 'windows-1252']:
             try:
-                dados = pd.read_csv(uploaded_file, encoding='utf-8')
+                uploaded_file.seek(0)  # Reinicia o ponteiro do arquivo
+                dados = pd.read_csv(uploaded_file, encoding=encoding)
+                break
             except UnicodeDecodeError:
-                try:
-                    dados = pd.read_csv(uploaded_file, encoding='latin-1')
-                except:
-                    dados = pd.read_csv(uploaded_file, encoding='iso-8859-1')
-        else:
-            dados = pd.read_csv(uploaded_file, encoding=encoding_option)
-            
+                continue
+        
         if 'Número' in dados.columns:
             st.session_state.historico = dados['Número'].tolist()
             st.success(f"Histórico carregado! {len(dados)} registros.")
         else:
             st.error("O arquivo precisa ter a coluna 'Número'")
     except Exception as e:
-        st.error(f"Erro ao ler arquivo: {e}\nTente outra codificação ou salve o arquivo como UTF-8.")
+        st.error(f"Erro ao ler arquivo: {e}\nTente salvar o arquivo com codificação UTF-8.")
 
 # Exibição da estratégia
 if st.session_state.historico:
