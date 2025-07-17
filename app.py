@@ -54,8 +54,8 @@ def registrar_numero(numero):
         num_anterior = st.session_state.historico[-1]
         resultado = "1" if numero in ESTRATEGIA.get(num_anterior, []) else "X"
         
-        # Armazena apenas os últimos 20 resultados por número
-        if len(st.session_state.previsoes[num_anterior]) >= 20:
+        # Armazena apenas os últimos 1000 resultados por número
+        if len(st.session_state.previsoes[num_anterior]) >= 1000:
             st.session_state.previsoes[num_anterior].pop(0)
         st.session_state.previsoes[num_anterior].append(resultado)
     
