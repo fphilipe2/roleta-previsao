@@ -1,127 +1,147 @@
 import streamlit as st
 import pandas as pd
-import time
-from collections import defaultdict, deque
-from io import StringIO
 
-# 1. CONFIGURAÇÃO INICIAL COMPLETA
-if 'historico' not in st.session_state:
-    st.session_state.historico = []
-if 'proximas_cores' not in st.session_state:
-    st.session_state.proximas_cores = defaultdict(lambda: deque(maxlen=100))
-if 'estrategia_c2' not in st.session_state:
-    st.session_state.estrategia_c2 = defaultdict(lambda: deque(maxlen=100))
-if 'sequencia_c2' not in st.session_state:
-    st.session_state.sequencia_c2 = deque(maxlen=1000)
-if 'estrategia_especial2' not in st.session_state:
-    st.session_state.estrategia_especial2 = defaultdict(lambda: deque(maxlen=100))
-if 'sequencia_estrategia2' not in st.session_state:
-    st.session_state.sequencia_estrategia2 = deque(maxlen=1000)
-if 'ultimo_clique' not in st.session_state:
-    st.session_state.ultimo_clique = 0
+# Inicialização do estado da sessão
+def init_state():
+    if 'historico' not in st.session_state:
+        st.session_state.historico = []
+    if 'previsoes' not in st.session_state:
+        st.session_state.previsoes = {n: [] for n in range(37)}
+    if 'sequencia_geral' not in st.session_state:
+        st.session_state.sequencia_geral = ""
 
-# 2. DEFINIÇÃO DOS GRUPOS DE NÚMEROS
-GRUPO_C2 = {2, 8, 11, 17, 20, 26, 29, 35}
-NUMEROS_ESPECIAIS_2 = {7, 12, 35}
-NUMEROS_PROIBIDOS_2 = {8, 11, 13, 29, 35, 26}
-
-# 3. MAPEAMENTO DE CORES (ADICIONE ESTA SEÇÃO)
-CORES = {
-    0: 'G',  # 0 = Verde
-    1: 'R', 2: 'B', 3: 'R', 4: 'B', 5: 'R', 6: 'B', 7: 'R', 8: 'B',
-    9: 'R', 10: 'B', 11: 'B', 12: 'R', 13: 'B', 14: 'R', 15: 'B',
-    16: 'R', 17: 'B', 18: 'R', 19: 'R', 20: 'B', 21: 'R', 22: 'B',
-    23: 'R', 24: 'B', 25: 'R', 26: 'B', 27: 'R', 28: 'B', 29: 'B',
-    30: 'R', 31: 'B', 32: 'R', 33: 'B', 34: 'R', 35: 'B', 36: 'R'
+# Estratégia completa
+ESTRATEGIA = {
+    0: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    1: [1, 2, 4, 5, 11, 12, 14, 15, 16, 17, 19, 20, 23, 24, 26, 27, 32, 33, 35, 36],
+    2: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    3: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    4: [4, 5, 7, 8, 14, 15, 17, 18, 19, 20, 22, 23, 29, 30, 32, 33],
+    5: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    6: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    7: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    8: [1, 2, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15, 17, 18, 20, 21, 23, 24, 26, 27, 28, 29, 30, 31, 32, 34, 35],
+    9: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    10: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    11: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    12: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    13: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    14: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    15: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    16: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    17: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    18: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    19: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    20: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    21: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    22: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    23: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    24: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    25: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    26: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    27: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    28: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    29: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    30: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    31: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    32: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    33: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    34: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    35: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36],
+    36: [2, 3, 5, 6, 7, 9, 12, 13, 14, 16, 17, 19, 20, 21, 24, 26, 27, 28, 29, 31, 32, 33, 35, 36]
 }
 
-# 4. FUNÇÃO PRINCIPAL (com todas as variáveis definidas)
-def registrar_numero(numero, ignore_clique=False):
-    if not ignore_clique:
-        if time.time() - st.session_state.ultimo_clique < 0.5:
-            st.warning("Aguarde 0.5 segundos entre os cliques!")
-            return
-        st.session_state.ultimo_clique = time.time()
+def registrar_numero(numero):
+    if numero not in range(37):
+        st.error("Número inválido! Deve ser entre 0 e 36")
+        return
     
-    if len(st.session_state.historico) > 0:
-        numero_anterior = st.session_state.historico[-1]
-        cor_atual = CORES.get(numero, 'G')  # Agora CORES está definido
-        st.session_state.proximas_cores[numero_anterior].append(cor_atual)
+    # Se já houver números no histórico, verifica a previsão
+    if st.session_state.historico:
+        ultimo_numero = st.session_state.historico[-1]
+        resultado = "1" if numero in ESTRATEGIA[ultimo_numero] else "X"
         
-        if numero_anterior in GRUPO_C2:
-            resultado = 'B' if numero in GRUPO_C2 else 'R'
-            st.session_state.estrategia_c2[numero_anterior].append(resultado)
-            st.session_state.sequencia_c2.append(resultado)
-            
-        if numero_anterior in NUMEROS_ESPECIAIS_2:
-            resultado = 'R' if numero not in NUMEROS_PROIBIDOS_2 else 'B'
-            st.session_state.estrategia_especial2[numero_anterior].append(resultado)
-            st.session_state.sequencia_estrategia2.append(resultado)
+        # Atualiza as previsões para o último número
+        if len(st.session_state.previsoes[ultimo_numero]) >= 1000:
+            st.session_state.previsoes[ultimo_numero].pop(0)
+        st.session_state.previsoes[ultimo_numero].append(resultado)
+        
+        # Atualiza a sequência geral
+        st.session_state.sequencia_geral += resultado
     
+    # Adiciona o novo número ao histórico
     st.session_state.historico.append(numero)
+    if len(st.session_state.historico) > 1000:
+        st.session_state.historico.pop(0)
 
-# 5. FUNÇÃO DE FORMATAÇÃO
-def formatar_cor(c):
-    if c == 'R':
-        return '<span style="color:red">R</span>'
-    elif c == 'B':
-        return '<span style="color:black">B</span>'
-    else:  # G
-        return '<span style="color:green">G</span>'
+def mostrar_resultados():
+    st.subheader("Resultados por Número")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.write("### 0-11")
+        for n in range(0, 12):
+            st.write(f"{n}: {' '.join(st.session_state.previsoes[n])}")
+    
+    with col2:
+        st.write("### 12-24")
+        for n in range(12, 25):
+            st.write(f"{n}: {' '.join(st.session_state.previsoes[n])}")
+    
+    with col3:
+        st.write("### 25-36")
+        for n in range(25, 37):
+            st.write(f"{n}: {' '.join(st.session_state.previsoes[n])}")
+    
+    st.subheader("Sequência Geral")
+    st.code(st.session_state.sequencia_geral)
 
-# ... (o restante do seu código de interface permanece igual)
-
-# Interface
-st.title("Rastreamento de Estratégias de Roleta")
-
-# Controles (APENAS UMA SEÇÃO)
-col1, col2 = st.columns(2)
-with col1:
-    novo_numero = st.number_input("Número sorteado (0-36)", min_value=0, max_value=36)
-
-with col2:
-    if st.button("Registrar", key="botao_registrar_unico"):
-        registrar_numero(novo_numero)
-
-# Upload de CSV
-uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
-if uploaded_file:
-    try:
-        dados = pd.read_csv(uploaded_file)
-        if 'Número' in dados.columns:
-            for num in dados['Número'].tolist():
-                registrar_numero(num, ignore_clique=True)
-            st.success("Histórico carregado com sucesso!")
-        else:
-            st.error("O arquivo CSV precisa ter uma coluna chamada 'Número'")
-    except Exception as e:
-        st.error(f"Erro ao ler arquivo: {e}")
-
-# Exportar CSV
-if st.button("📥 Exportar Histórico CSV"):
-    if len(st.session_state.historico) > 0:
-        df_export = pd.DataFrame({
-            'Número': st.session_state.historico,
-            'Cor': [CORES.get(num, 'G') for num in st.session_state.historico]
-        })
-        csv = df_export.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Baixar CSV",
-            data=csv,
-            file_name='historico_roleta.csv',
-            mime='text/csv'
-        )
+def main():
+    init_state()
+    st.title("Sistema de Previsão de Roleta")
+    
+    # Controles
+    with st.form(key='registro_form'):
+        col1, col2 = st.columns(2)
+        with col1:
+            numero = st.number_input("Número sorteado (0-36)", 
+                                   min_value=0, 
+                                   max_value=36,
+                                   key="num_input")
+        with col2:
+            submitted = st.form_submit_button("Registrar")
+            if submitted:
+                registrar_numero(numero)
+                st.experimental_rerun()
+    
+    # Upload de arquivo
+    uploaded_file = st.file_uploader("Carregar histórico (CSV)", 
+                                   type=["csv"],
+                                   key="file_uploader")
+    
+    if uploaded_file is not None:
+        try:
+            dados = pd.read_csv(uploaded_file)
+            if 'Número' in dados.columns:
+                # Reinicia o estado antes de carregar
+                init_state()
+                for num in dados['Número']:
+                    registrar_numero(num)
+                st.success(f"Histórico carregado: {len(dados)} registros")
+                st.experimental_rerun()
+        except Exception as e:
+            st.error(f"Erro ao ler arquivo: {e}")
+    
+    # Exibição dos resultados
+    if len(st.session_state.historico) > 1:
+        mostrar_resultados()
+        
+        if st.button("Limpar Histórico"):
+            init_state()
+            st.experimental_rerun()
     else:
-        st.warning("Nenhum dado para exportar!")
+        st.info("Registre pelo menos 2 números para ver as previsões")
 
-# Exibição dos resultados
-st.subheader("Últimas 100 cores após cada número")
-cols = st.columns(4)
-for numero in range(37):
-    with cols[numero % 4]:
-        historico_formatado = ''.join([formatar_cor(c) for c in st.session_state.proximas_cores[numero]])
-        st.markdown(f"{numero}: {historico_formatado}", unsafe_allow_html=True)
-
-# Visualização da sequência
-st.subheader(f"Últimos {min(50, len(st.session_state.historico))} números sorteados")
-st.write(" → ".join(str(n) for n in st.session_state.historico[-50:]))
+if __name__ == "__main__":
+    main()
