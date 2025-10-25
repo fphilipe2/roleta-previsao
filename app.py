@@ -49,70 +49,33 @@ ESTRATEGIA = {
     36: [0, 2, 7, 13, 24, 36]
 }
 
-OBSERVACOES = {
-    0: "Foco em números baixos e médios",
-    1: "Mistura de baixos e altos",
-    2: "Inclui números 'vizinhos' no cilindro",
-    3: "Aposta em laterais e finais",
-    4: "Dispersão equilibrada",
-    5: "Transição para números médios",
-    6: "Foco em colunas do meio",
-    7: "Números laterais e primes",
-    8: "Combinação de altos e baixos",
-    9: "Aposta em diagonais virtuais",
-    10: "Foco em terços superiores",
-    11: "Mistura de colunas e dezenas",
-    12: "Números centrais e finais",
-    13: "Dispersão ampla",
-    14: "Inclui o zero para cobertura extra",
-    15: "Reinicia ciclo com números baixos",
-    16: "Padrão de números baixos",
-    17: "Sequência linear ascendente",
-    18: "Foco em números pares",
-    19: "Combinação de ímpares",
-    20: "Mistura de extremos",
-    21: "Números centrais",
-    22: "Padrão diagonal",
-    23: "Inclui zero e números altos",
-    24: "Sequência mista",
-    25: "Foco em colunas",
-    26: "Dispersão uniforme",
-    27: "Números primos e compostos",
-    28: "Padrão circular",
-    29: "Combinação estratégica",
-    30: "Transição suave",
-    31: "Números laterais",
-    32: "Foco em dúzias",
-    33: "Mistura balanceada",
-    34: "Sequência alternada",
-    35: "Padrão de finalização",
-    36: "Combinação fechada com zero"
-}
-
 def registrar_numero(numero):
     st.session_state.historico.append(numero)
 
-def analisar_ultimas_ocorrencias(numero_alvo):
-    """Analisa as últimas 3 ocorrências do número no histórico"""
-    ocorrencias = []
+def obter_numeros_padrao(numero_alvo):
+    """Obtém os 6 números (1 antes e 1 depois das últimas 3 ocorrências)"""
+    numeros_padrao = []
     
     # Encontra todas as posições do número no histórico
     posicoes = [i for i, num in enumerate(st.session_state.historico) if num == numero_alvo]
     
-    # Pega as últimas 3 ocorrências (se existirem)
+    # Pega as últimas 3 ocorrências
     ultimas_posicoes = posicoes[-3:] if len(posicoes) >= 3 else posicoes
     
     for pos in ultimas_posicoes:
-        antes = st.session_state.historico[pos - 1] if pos > 0 else "N/A"
-        depois = st.session_state.historico[pos + 1] if pos < len(st.session_state.historico) - 1 else "N/A"
+        # Número antes
+        if pos > 0:
+            antes = st.session_state.historico[pos - 1]
+            if antes not in numeros_padrao:
+                numeros_padrao.append(antes)
         
-        ocorrencias.append({
-            'posicao': pos + 1,  # Posição humana (começa em 1)
-            'antes': antes,
-            'depois': depois
-        })
+        # Número depois
+        if pos < len(st.session_state.historico) - 1:
+            depois = st.session_state.historico[pos + 1]
+            if depois not in numeros_padrao:
+                numeros_padrao.append(depois)
     
-    return ocorrencias
+    return numeros_padrao[:6]  # Retorna no máximo 6 números
 
 # Interface
 st.title("Estratégia de Apostas na Roleta")
@@ -138,96 +101,32 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Erro ao ler arquivo: {e}")
 
-# Exibição da estratégia principal
+# Exibição das estratégias
 if st.session_state.historico:
     ultimo_numero = st.session_state.historico[-1]
+    
+    # Estratégia principal
     numeros_aposta = ESTRATEGIA.get(ultimo_numero, [])
-    observacao = OBSERVACOES.get(ultimo_numero, "")
+    
+    # Nova estratégia - Padrão das últimas ocorrências
+    numeros_padrao = obter_numeros_padrao(ultimo_numero)
     
     st.subheader(f"Último número sorteado: {ultimo_numero}")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown("**Números para apostar:**")
-        st.write(numeros_aposta)
-    with col2:
-        st.markdown("**Observações:**")
-        st.write(observacao)
+    # Estratégia Principal
+    st.markdown("**🎯 Estratégia Principal**")
+    st.write(f"Números para apostar: {numeros_aposta}")
     
-    # NOVA ESTRATÉGIA: Análise das últimas ocorrências
-    st.subheader("📊 Análise das Últimas Ocorrências")
-    
-    ocorrencias = analisar_ultimas_ocorrencias(ultimo_numero)
-    
-    if ocorrencias:
-        st.write(f"**Número analisado:** {ultimo_numero}")
-        st.write(f"**Total de ocorrências no histórico:** {st.session_state.historico.count(ultimo_numero)}")
-        
-        for i, ocor in enumerate(ocorrencias, 1):
-            st.write(f"**Ocorrência {i} (posição {ocor['posicao']}):**")
-            col_ant, col_dep = st.columns(2)
-            with col_ant:
-                st.write(f"**Antes:** {ocor['antes']}")
-            with col_dep:
-                st.write(f"**Depois:** {ocor['depois']}")
+    # Nova Estratégia - Padrão
+    st.markdown("**📊 Padrão das Últimas Ocorrências**")
+    if numeros_padrao:
+        st.write(f"Números (1 antes e 1 depois das últimas {min(3, st.session_state.historico.count(ultimo_numero))} saídas): {numeros_padrao}")
     else:
-        st.write(f"O número {ultimo_numero} ainda não apareceu no histórico")
-    
-    # Visualização dos números no layout da roleta
-    st.subheader("🎯 Visualização na Roleta")
-    roleta_layout = """
-    <style>
-    .number {
-        display: inline-block;
-        width: 40px;
-        height: 40px;
-        margin: 2px;
-        text-align: center;
-        line-height: 40px;
-        border-radius: 50%;
-        font-weight: bold;
-        border: 1px solid #ccc;
-    }
-    .aposta {
-        background-color: #4CAF50;
-        color: white;
-    }
-    .atual {
-        background-color: #2196F3;
-        color: white;
-    }
-    .normal {
-        background-color: #f0f0f0;
-    }
-    </style>
-    <div style='text-align: center;'>
-    """
-    
-    for num in range(37):
-        if num == ultimo_numero:
-            classe = "atual"
-        elif num in numeros_aposta:
-            classe = "aposta"
-        else:
-            classe = "normal"
-        roleta_layout += f"<div class='number {classe}'>{num}</div>"
-    
-    roleta_layout += "</div>"
-    st.markdown(roleta_layout, unsafe_allow_html=True)
-    
-    # Legenda
-    st.write("**Legenda:**")
-    col_leg1, col_leg2, col_leg3 = st.columns(3)
-    with col_leg1:
-        st.write("🔵 Número atual")
-    with col_leg2:
-        st.write("🟢 Números para apostar")
-    with col_leg3:
-        st.write("⚪ Outros números")
+        st.write("Número ainda não tem ocorrências anteriores suficientes")
     
     # Histórico recente
     st.subheader("📈 Últimos números sorteados")
-    st.write(" → ".join(map(str, st.session_state.historico[-15:])))
+    st.write(" → ".join(map(str, st.session_state.historico[-10:])))
 else:
     st.warning("Registre um número ou carregue um histórico para ver as apostas")
 
