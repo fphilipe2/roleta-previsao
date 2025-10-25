@@ -81,23 +81,26 @@ def calcular_apostas_finais(numeros_palpite, vizinhos):
     apostas_finais.update(vizinhos)
     return sorted(list(apostas_finais))
 
-def verificar_resultado_aposta(ultimo_sorteado, apostas_finais):
-    """Verifica se o último número sorteado está nas apostas finais"""
-    if ultimo_sorteado in apostas_finais:
+def verificar_resultado_aposta(numero_sorteado, apostas_finais):
+    """Verifica se o número sorteado está nas apostas finais"""
+    if numero_sorteado in apostas_finais:
         return "1"  # GREEN
     else:
         return "X"  # RED
 
 def registrar_numero(numero):
-    if st.session_state.historico:
-        ultimo_sorteado = st.session_state.historico[-1]
-        numeros_palpite = ESTRATEGIA.get(ultimo_sorteado, [])
-        vizinhos = calcular_vizinhos_completos(numeros_palpite, ultimo_sorteado)
-        apostas_finais = calcular_apostas_finais(numeros_palpite, vizinhos)
+    # Primeiro verificamos o resultado da aposta ATUAL baseada no último histórico
+    if len(st.session_state.historico) >= 1:
+        ultimo_sorteado_anterior = st.session_state.historico[-1]
+        numeros_palpite_anterior = ESTRATEGIA.get(ultimo_sorteado_anterior, [])
+        vizinhos_anterior = calcular_vizinhos_completos(numeros_palpite_anterior, ultimo_sorteado_anterior)
+        apostas_finais_anterior = calcular_apostas_finais(numeros_palpite_anterior, vizinhos_anterior)
         
-        resultado = verificar_resultado_aposta(numero, apostas_finais)
+        # Verifica se o NOVO número está na aposta feita para o último sorteado
+        resultado = verificar_resultado_aposta(numero, apostas_finais_anterior)
         st.session_state.resultados.append(resultado)
     
+    # Depois adiciona o novo número ao histórico
     st.session_state.historico.append(numero)
 
 def obter_numeros_padrao(numero_alvo):
@@ -191,6 +194,11 @@ if st.session_state.historico:
         resultados_display = " ".join(list(st.session_state.resultados)[-20:])
         st.write(resultados_display)
         st.write(f"Total de registros: {len(st.session_state.resultados)}")
+        
+        # Estatísticas
+        total_green = list(st.session_state.resultados).count("1")
+        total_red = list(st.session_state.resultados).count("X")
+        st.write(f"GREEN: {total_green} | RED: {total_red} | Taxa de acerto: {(total_green/len(st.session_state.resultados)*100):.1f}%")
     else:
         st.write("Aguardando próximos resultados...")
 else:
@@ -199,9 +207,15 @@ else:
 # Exportar histórico
 if st.button("📥 Exportar Histórico"):
     if st.session_state.historico:
+        # Ajusta o tamanho das listas para exportação
+        resultados_export = list(st.session_state.resultados)
+        if len(resultados_export) < len(st.session_state.historico):
+            # Preenche com valores vazios para os primeiros registros sem resultado
+            resultados_export = [''] * (len(st.session_state.historico) - len(resultados_export)) + resultados_export
+        
         df = pd.DataFrame({
             'Número': st.session_state.historico,
-            'Resultado_Aposta': list(st.session_state.resultados) + [''] * (len(st.session_state.historico) - len(st.session_state.resultados))
+            'Resultado_Aposta': resultados_export
         })
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
