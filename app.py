@@ -10,11 +10,11 @@ if 'ultimo_clique' not in st.session_state:
 if 'resultados' not in st.session_state:
     st.session_state.resultados = deque(maxlen=1000)
 
-# Estratégia CORRIGIDA baseada no seu exemplo
+# Estratégia completa (0-36)
 ESTRATEGIA = {
-    0: [0, 5, 10, 23, 26, 32],
+    0: [0, 2, 14, 17, 24, 26, 31],
     1: [1, 2, 4, 20, 21, 33],
-    2: [1, 10, 12, 15, 21, 26],  # CORRIGIDO conforme seu exemplo
+    2: [1, 10, 12, 15, 21, 26],
     3: [3, 8, 23, 26, 30, 35],
     4: [1, 4, 9, 16, 21, 33],
     5: [5, 6, 11, 17, 22, 34],
@@ -51,21 +51,56 @@ ESTRATEGIA = {
     36: [0, 2, 7, 13, 24, 36]
 }
 
-def obter_vizinhos(numero):
-    """Retorna os vizinhos esquerdo e direito de um número na roleta"""
-    if numero == 0:
-        return [36, 1]
-    elif numero == 36:
-        return [35, 0]
-    else:
-        return [numero - 1, numero + 1]
+def obter_vizinhos_roleta(numero):
+    """Retorna os vizinhos baseados no layout físico da roleta"""
+    # Mapeamento dos vizinhos baseado no seu exemplo
+    vizinhos_map = {
+    0: [32, 26],
+    1: [20, 33],
+    2: [21, 25],
+    3: [26, 35],
+    4: [19, 21],
+    5: [24, 10],
+    6: [27, 34],
+    7: [28, 29],
+    8: [23, 30],
+    9: [31, 22],
+    10: [5, 16],
+    11: [30, 36],
+    12: [35, 28],
+    13: [27, 36],
+    14: [20, 31],
+    15: [32, 19],
+    16: [10, 24],
+    17: [25, 34],
+    18: [29, 22],
+    19: [15, 4],
+    20: [1, 14],
+    21: [4, 2],
+    22: [18, 31],
+    23: [8, 33],
+    24: [5, 16],
+    25: [17, 2],
+    26: [3, 0],
+    27: [6, 13],
+    28: [7, 12],
+    29: [18, 7],
+    30: [8, 11],
+    31: [14, 9],
+    32: [15, 0],
+    33: [1, 23],
+    34: [6, 17],
+    35: [3, 12],
+    36: [13, 11]
+}
+    return vizinhos_map.get(numero, [])
 
 def calcular_vizinhos_apostas(numeros_palpite):
-    """Calcula apenas os vizinhos dos números do palpite"""
+    """Calcula os vizinhos baseados no layout físico da roleta"""
     todos_vizinhos = set()
     
     for numero in numeros_palpite:
-        vizinhos = obter_vizinhos(numero)
+        vizinhos = obter_vizinhos_roleta(numero)
         todos_vizinhos.update(vizinhos)
     
     return sorted(list(todos_vizinhos))
@@ -91,15 +126,8 @@ def registrar_numero(numero):
         vizinhos_anterior = calcular_vizinhos_apostas(numeros_palpite_anterior)
         apostas_finais_anterior = calcular_apostas_finais(numeros_palpite_anterior, vizinhos_anterior)
         
-        # DEBUG: Mostrar o que está sendo verificado
-        st.write(f"DEBUG: Último sorteado: {ultimo_sorteado_anterior}")
-        st.write(f"DEBUG: Palpite: {numeros_palpite_anterior}")
-        st.write(f"DEBUG: Apostas finais: {apostas_finais_anterior}")
-        st.write(f"DEBUG: Novo número: {numero}")
-        
         resultado = verificar_resultado_aposta(numero, apostas_finais_anterior)
         st.session_state.resultados.append(resultado)
-        st.write(f"DEBUG: Resultado: {resultado}")
     
     # Depois adiciona o novo número ao histórico
     st.session_state.historico.append(numero)
@@ -154,7 +182,7 @@ if st.session_state.historico:
     # Estratégia principal
     numeros_palpite = ESTRATEGIA.get(ultimo_numero, [])
     
-    # Calcular vizinhos APENAS dos números do palpite
+    # Calcular vizinhos baseados no layout físico
     vizinhos = calcular_vizinhos_apostas(numeros_palpite)
     
     # Apostas finais (palpite + vizinhos)
@@ -168,7 +196,7 @@ if st.session_state.historico:
     # Estratégia Principal Expandida
     st.markdown("**🎯 Estratégia Principal**")
     st.write(f"**Números para apostar:** V{numeros_palpite}")
-    st.write(f"**Vizinhos:** {vizinhos}")
+    st.write(f"**Vizinhos dos palpites:** {vizinhos}")
     st.write(f"**APOSTAS FINAIS (Palpite + Vizinhos):** {apostas_finais}")
     
     # Nova Estratégia - Padrão
