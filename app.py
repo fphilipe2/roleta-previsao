@@ -8,13 +8,13 @@ if 'historico' not in st.session_state:
 if 'ultimo_clique' not in st.session_state:
     st.session_state.ultimo_clique = 0
 if 'resultados' not in st.session_state:
-    st.session_state.resultados = deque(maxlen=1000)  # Mantém últimos 1000 resultados
+    st.session_state.resultados = deque(maxlen=1000)
 
-# Estratégia completa (0-36)
+# Estratégia CORRIGIDA baseada no seu exemplo
 ESTRATEGIA = {
     0: [0, 5, 10, 23, 26, 32],
     1: [1, 2, 4, 20, 21, 33],
-    2: [1, 2, 14, 20, 21, 25],
+    2: [1, 10, 12, 15, 21, 26],  # CORRIGIDO conforme seu exemplo
     3: [3, 8, 23, 26, 30, 35],
     4: [1, 4, 9, 16, 21, 33],
     5: [5, 6, 11, 17, 22, 34],
@@ -64,7 +64,6 @@ def calcular_vizinhos_apostas(numeros_palpite):
     """Calcula apenas os vizinhos dos números do palpite"""
     todos_vizinhos = set()
     
-    # Adiciona vizinhos dos números do palpite
     for numero in numeros_palpite:
         vizinhos = obter_vizinhos(numero)
         todos_vizinhos.update(vizinhos)
@@ -92,9 +91,15 @@ def registrar_numero(numero):
         vizinhos_anterior = calcular_vizinhos_apostas(numeros_palpite_anterior)
         apostas_finais_anterior = calcular_apostas_finais(numeros_palpite_anterior, vizinhos_anterior)
         
-        # Verifica se o NOVO número está na aposta feita para o último sorteado
+        # DEBUG: Mostrar o que está sendo verificado
+        st.write(f"DEBUG: Último sorteado: {ultimo_sorteado_anterior}")
+        st.write(f"DEBUG: Palpite: {numeros_palpite_anterior}")
+        st.write(f"DEBUG: Apostas finais: {apostas_finais_anterior}")
+        st.write(f"DEBUG: Novo número: {numero}")
+        
         resultado = verificar_resultado_aposta(numero, apostas_finais_anterior)
         st.session_state.resultados.append(resultado)
+        st.write(f"DEBUG: Resultado: {resultado}")
     
     # Depois adiciona o novo número ao histórico
     st.session_state.historico.append(numero)
@@ -103,26 +108,20 @@ def obter_numeros_padrao(numero_alvo):
     """Obtém os 6 números (1 antes e 1 depois das últimas 3 ocorrências)"""
     numeros_padrao = []
     
-    # Encontra todas as posições do número no histórico
     posicoes = [i for i, num in enumerate(st.session_state.historico) if num == numero_alvo]
-    
-    # Pega as últimas 3 ocorrências
     ultimas_posicoes = posicoes[-3:] if len(posicoes) >= 3 else posicoes
     
     for pos in ultimas_posicoes:
-        # Número antes
         if pos > 0:
             antes = st.session_state.historico[pos - 1]
             if antes not in numeros_padrao:
                 numeros_padrao.append(antes)
-        
-        # Número depois
         if pos < len(st.session_state.historico) - 1:
             depois = st.session_state.historico[pos + 1]
             if depois not in numeros_padrao:
                 numeros_padrao.append(depois)
     
-    return numeros_padrao[:6]  # Retorna no máximo 6 números
+    return numeros_padrao[:6]
 
 # Interface
 st.title("Estratégia de Apostas na Roleta")
@@ -186,28 +185,22 @@ if st.session_state.historico:
     # Resultados das Apostas
     st.subheader("📊 Resultados das Apostas")
     if st.session_state.resultados:
-        # Mostra os últimos 20 resultados
         resultados_display = " ".join(list(st.session_state.resultados)[-20:])
         st.write(resultados_display)
         st.write(f"Total de registros: {len(st.session_state.resultados)}")
         
-        # Estatísticas
         total_green = list(st.session_state.resultados).count("1")
         total_red = list(st.session_state.resultados).count("X")
         if len(st.session_state.resultados) > 0:
             st.write(f"GREEN: {total_green} | RED: {total_red} | Taxa de acerto: {(total_green/len(st.session_state.resultados)*100):.1f}%")
     else:
         st.write("Aguardando próximos resultados...")
-else:
-    st.warning("Registre um número ou carregue um histórico para ver as apostas")
 
 # Exportar histórico
 if st.button("📥 Exportar Histórico"):
     if st.session_state.historico:
-        # Ajusta o tamanho das listas para exportação
         resultados_export = list(st.session_state.resultados)
         if len(resultados_export) < len(st.session_state.historico):
-            # Preenche com valores vazios para os primeiros registros sem resultado
             resultados_export = [''] * (len(st.session_state.historico) - len(resultados_export)) + resultados_export
         
         df = pd.DataFrame({
