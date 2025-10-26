@@ -53,7 +53,6 @@ ESTRATEGIA = {
 
 def obter_vizinhos_roleta(numero):
     """Retorna os vizinhos baseados no layout físico da roleta"""
-    # Mapeamento dos vizinhos baseado no seu exemplo
     vizinhos_map = {
     0: [32, 26],
     1: [20, 33],
@@ -98,11 +97,9 @@ def obter_vizinhos_roleta(numero):
 def calcular_vizinhos_apostas(numeros_palpite):
     """Calcula os vizinhos baseados no layout físico da roleta"""
     todos_vizinhos = set()
-    
     for numero in numeros_palpite:
         vizinhos = obter_vizinhos_roleta(numero)
         todos_vizinhos.update(vizinhos)
-    
     return sorted(list(todos_vizinhos))
 
 def calcular_apostas_finais(numeros_palpite, vizinhos):
@@ -119,23 +116,27 @@ def verificar_resultado_aposta(numero_sorteado, apostas_finais):
         return "X"  # RED
 
 def registrar_numero(numero):
-    # Primeiro verificamos o resultado da aposta ATUAL baseada no último histórico
-    if len(st.session_state.historico) >= 1:
-        ultimo_sorteado_anterior = st.session_state.historico[-1]
-        numeros_palpite_anterior = ESTRATEGIA.get(ultimo_sorteado_anterior, [])
+    # CORREÇÃO: Primeiro adiciona o número ao histórico
+    st.session_state.historico.append(numero)
+    
+    # CORREÇÃO: Só verifica resultado se tiver pelo menos 2 números no histórico
+    if len(st.session_state.historico) >= 2:
+        # Pega o número ANTERIOR (penúltimo) para verificar o resultado
+        numero_anterior = st.session_state.historico[-2]
+        numero_atual = st.session_state.historico[-1]
+        
+        # Gera as apostas que foram feitas para o número anterior
+        numeros_palpite_anterior = ESTRATEGIA.get(numero_anterior, [])
         vizinhos_anterior = calcular_vizinhos_apostas(numeros_palpite_anterior)
         apostas_finais_anterior = calcular_apostas_finais(numeros_palpite_anterior, vizinhos_anterior)
         
-        resultado = verificar_resultado_aposta(numero, apostas_finais_anterior)
+        # Verifica se o número ATUAL está nas apostas do número ANTERIOR
+        resultado = verificar_resultado_aposta(numero_atual, apostas_finais_anterior)
         st.session_state.resultados.append(resultado)
-    
-    # Depois adiciona o novo número ao histórico
-    st.session_state.historico.append(numero)
 
 def obter_numeros_padrao(numero_alvo):
     """Obtém os 6 números (1 antes e 1 depois das últimas 3 ocorrências)"""
     numeros_padrao = []
-    
     posicoes = [i for i, num in enumerate(st.session_state.historico) if num == numero_alvo]
     ultimas_posicoes = posicoes[-3:] if len(posicoes) >= 3 else posicoes
     
@@ -148,7 +149,6 @@ def obter_numeros_padrao(numero_alvo):
             depois = st.session_state.historico[pos + 1]
             if depois not in numeros_padrao:
                 numeros_padrao.append(depois)
-    
     return numeros_padrao[:6]
 
 # Interface
@@ -181,14 +181,8 @@ if st.session_state.historico:
     
     # Estratégia principal
     numeros_palpite = ESTRATEGIA.get(ultimo_numero, [])
-    
-    # Calcular vizinhos baseados no layout físico
     vizinhos = calcular_vizinhos_apostas(numeros_palpite)
-    
-    # Apostas finais (palpite + vizinhos)
     apostas_finais = calcular_apostas_finais(numeros_palpite, vizinhos)
-    
-    # Nova estratégia - Padrão das últimas ocorrências
     numeros_padrao = obter_numeros_padrao(ultimo_numero)
     
     st.subheader(f"Último número sorteado: {ultimo_numero}")
@@ -228,12 +222,12 @@ if st.session_state.historico:
 if st.button("📥 Exportar Histórico"):
     if st.session_state.historico:
         resultados_export = list(st.session_state.resultados)
-        if len(resultados_export) < len(st.session_state.historico):
-            resultados_export = [''] * (len(st.session_state.historico) - len(resultados_export)) + resultados_export
+        if len(resultados_export) < len(st.session_state.historico) - 1:
+            resultados_export = [''] * (len(st.session_state.historico) - 1 - len(resultados_export)) + resultados_export
         
         df = pd.DataFrame({
             'Número': st.session_state.historico,
-            'Resultado_Aposta': resultados_export
+            'Resultado_Aposta': [''] + resultados_export  # Primeiro número não tem resultado
         })
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
