@@ -29,14 +29,14 @@ def obter_vizinhos_roleta(numeros):
             todos_vizinhos.update(vizinhos)
     return sorted(list(todos_vizinhos))
 
-def obter_ultimas_ocorrencias(numero_alvo):
-    """Obtém as últimas 3 ocorrências do número com seus vizinhos"""
+def obter_ultimas_ocorrencias_anteriores(numero_alvo):
+    """Obtém as últimas 3 ocorrências ANTERIORES do número (excluindo a última)"""
     ocorrencias_com_vizinhos = []
     
-    # Encontra todas as posições do número no histórico
-    posicoes = [i for i, num in enumerate(st.session_state.historico) if num == numero_alvo]
+    # Encontra todas as posições do número no histórico (excluindo a última posição)
+    posicoes = [i for i, num in enumerate(st.session_state.historico[:-1]) if num == numero_alvo]
     
-    # Pega as últimas 3 ocorrências
+    # Pega as últimas 3 ocorrências anteriores
     ultimas_posicoes = posicoes[-3:] if len(posicoes) >= 3 else posicoes
     
     for pos in ultimas_posicoes:
@@ -54,9 +54,9 @@ def registrar_numero(numero):
     # Primeiro verifica o resultado da aposta anterior
     if len(st.session_state.historico) >= 1:
         ultimo_sorteado_anterior = st.session_state.historico[-1]
-        ocorrencias_anterior = obter_ultimas_ocorrencias(ultimo_sorteado_anterior)
+        ocorrencias_anterior = obter_ultimas_ocorrencias_anteriores(ultimo_sorteado_anterior)
         
-        # Coleta todos os números para apostar (antes, próprio, depois)
+        # Coleta todos os números para apostar (apenas das ocorrências ANTERIORES)
         numeros_aposta = set()
         for ocorrencia in ocorrencias_anterior:
             if ocorrencia['antes'] is not None:
@@ -65,7 +65,10 @@ def registrar_numero(numero):
             if ocorrencia['depois'] is not None:
                 numeros_aposta.add(ocorrencia['depois'])
         
-        # Calcula vizinhos
+        # ADICIONA o próprio número que acabou de sair
+        numeros_aposta.add(ultimo_sorteado_anterior)
+        
+        # Calcula vizinhos de TODOS os números (incluindo o que acabou de sair)
         vizinhos = obter_vizinhos_roleta(list(numeros_aposta))
         apostas_finais = sorted(list(set(numeros_aposta) | set(vizinhos)))
         
@@ -106,19 +109,22 @@ if uploaded_file:
 if st.session_state.historico:
     ultimo_numero = st.session_state.historico[-1]
     
-    # Obtém as últimas ocorrências
-    ocorrencias = obter_ultimas_ocorrencias(ultimo_numero)
+    # Obtém as últimas ocorrências ANTERIORES (excluindo a última)
+    ocorrencias = obter_ultimas_ocorrencias_anteriores(ultimo_numero)
     
     st.subheader(f"Último número sorteado: {ultimo_numero}")
     
-    # Mostra as últimas ocorrências
-    st.markdown("**Últimas vezes que saiu:**")
-    for i, ocorrencia in enumerate(ocorrencias, 1):
-        antes = f"{ocorrencia['antes']} → " if ocorrencia['antes'] is not None else ""
-        depois = f" → {ocorrencia['depois']}" if ocorrencia['depois'] is not None else ""
-        st.write(f"{i}. {antes}{ocorrencia['numero']}{depois}")
+    # Mostra as últimas ocorrências ANTERIORES
+    if ocorrencias:
+        st.markdown("**Últimas saídas anteriores:**")
+        for i, ocorrencia in enumerate(ocorrencias, 1):
+            antes = f"{ocorrencia['antes']} → " if ocorrencia['antes'] is not None else ""
+            depois = f" → {ocorrencia['depois']}" if ocorrencia['depois'] is not None else ""
+            st.write(f"{i}. {antes}{ocorrencia['numero']}{depois}")
+    else:
+        st.write("Número ainda não tem ocorrências anteriores suficientes")
     
-    # Coleta todos os números para apostar
+    # Coleta todos os números para apostar (apenas das ocorrências ANTERIORES)
     numeros_aposta = set()
     for ocorrencia in ocorrencias:
         if ocorrencia['antes'] is not None:
@@ -127,13 +133,12 @@ if st.session_state.historico:
         if ocorrencia['depois'] is not None:
             numeros_aposta.add(ocorrencia['depois'])
     
+    # ADICIONA o próprio número que acabou de sair
+    numeros_aposta.add(ultimo_numero)
     numeros_aposta = sorted(list(numeros_aposta))
     
     # Calcula vizinhos
     vizinhos = obter_vizinhos_roleta(numeros_aposta)
-    
-    # Apostas finais
-    apostas_finais = sorted(list(set(numeros_aposta) | set(vizinhos)))
     
     st.markdown("**Apostar nos números:**")
     st.write(f"**V{numeros_aposta}**")
