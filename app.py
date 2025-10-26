@@ -48,6 +48,37 @@ def obter_numeros_nao_sorteados(ultimas_rodadas=50):
     
     return sorted(list(numeros_nao_sorteados))
 
+def verificar_apostas_do_historico():
+    """Verifica todas as apostas do histórico carregado"""
+    st.session_state.resultados.clear()  # Limpa resultados anteriores
+    
+    if len(st.session_state.historico) <= 50:
+        return  # Não há apostas para verificar
+    
+    # Para cada número a partir da posição 50, verifica a aposta
+    for i in range(50, len(st.session_state.historico)):
+        numero_atual = st.session_state.historico[i]
+        
+        # Pega as últimas 50 rodadas ANTES deste número
+        inicio = max(0, i - 50)
+        ultimos_50_anteriores = st.session_state.historico[inicio:i]
+        
+        # Calcula números atrasados
+        numeros_sorteados_50 = set(ultimos_50_anteriores)
+        todos_numeros = set(range(0, 37))
+        numeros_atrasados = sorted(list(todos_numeros - numeros_sorteados_50))
+        
+        if numeros_atrasados:
+            # Calcula apostas
+            vizinhos_atrasados = obter_vizinhos_roleta(numeros_atrasados)
+            apostas_anteriores = sorted(list(set(numeros_atrasados) | set(vizinhos_atrasados)))
+            
+            # Verifica resultado
+            if numero_atual in apostas_anteriores:
+                st.session_state.resultados.append("1")  # GREEN
+            else:
+                st.session_state.resultados.append("X")  # RED
+
 def registrar_numero(numero):
     # Primeiro verifica o resultado da aposta anterior (se houver histórico suficiente)
     if len(st.session_state.historico) >= 50:
@@ -90,6 +121,11 @@ if uploaded_file:
         if 'Número' in dados.columns:
             st.session_state.historico = dados['Número'].tolist()
             st.success(f"Histórico carregado! {len(dados)} registros.")
+            
+            # VERIFICA AUTOMATICAMENTE AS APOSTAS DO HISTÓRICO
+            verificar_apostas_do_historico()
+            st.success(f"Verificação concluída! {len(st.session_state.resultados)} apostas analisadas.")
+            
         else:
             st.error("O arquivo precisa ter a coluna 'Número'")
     except Exception as e:
@@ -139,7 +175,7 @@ if st.session_state.historico:
     # Resultados das Apostas
     st.subheader("🎲 Resultados das Apostas")
     if st.session_state.resultados:
-        # CORREÇÃO: Mostrar TODOS os resultados, não apenas os últimos 20
+        # Mostra TODOS os resultados
         resultados_display = " ".join(list(st.session_state.resultados))
         st.write(resultados_display)
         st.write(f"Total de apostas registradas: {len(st.session_state.resultados)}")
@@ -154,7 +190,18 @@ if st.session_state.historico:
             if len(st.session_state.resultados) > 20:
                 st.write(f"**Últimos 20 resultados:** {" ".join(list(st.session_state.resultados)[-20:])}")
     else:
-        st.write("Aguardando próximos resultados... (mínimo 50 rodadas para análise)")
+        if len(st.session_state.historico) >= 50:
+            st.write("Nenhuma aposta registrada. Use o botão 'Registrar' para começar.")
+        else:
+            st.write("Aguardando mais dados... (mínimo 50 rodadas para análise)")
+
+# Botão para forçar re-verificação do histórico
+if st.button("🔄 Re-verificar Histórico"):
+    if st.session_state.historico:
+        verificar_apostas_do_historico()
+        st.success(f"Re-verificação concluída! {len(st.session_state.resultados)} apostas analisadas.")
+    else:
+        st.warning("Nenhum histórico para verificar")
 
 # Exportar histórico
 if st.button("📥 Exportar Histórico"):
