@@ -50,6 +50,25 @@ def obter_ultimas_ocorrencias_anteriores(numero_alvo):
     
     return ocorrencias_com_vizinhos
 
+def obter_numeros_nao_sorteados(ultimas_rodadas=50):
+    """Analisa os números que NÃO saíram nas últimas X rodadas"""
+    if len(st.session_state.historico) < ultimas_rodadas:
+        return []  # Não há dados suficientes
+    
+    # Pega as últimas X rodadas
+    ultimos_numeros = st.session_state.historico[-ultimas_rodadas:]
+    
+    # Todos os números possíveis (0-36)
+    todos_numeros = set(range(0, 37))
+    
+    # Números que saíram nas últimas X rodadas
+    numeros_sorteados = set(ultimos_numeros)
+    
+    # Números que NÃO saíram
+    numeros_nao_sorteados = todos_numeros - numeros_sorteados
+    
+    return sorted(list(numeros_nao_sorteados))
+
 def registrar_numero(numero):
     # Primeiro verifica o resultado da aposta anterior
     if len(st.session_state.historico) >= 1:
@@ -114,6 +133,9 @@ if st.session_state.historico:
     
     st.subheader(f"Último número sorteado: {ultimo_numero}")
     
+    # ESTRATÉGIA 1: Padrão de Ocorrências
+    st.markdown("### 🔍 Estratégia 1: Padrão de Ocorrências")
+    
     # Mostra as últimas ocorrências ANTERIORES
     if ocorrencias:
         st.markdown("**Últimas saídas anteriores:**")
@@ -146,16 +168,53 @@ if st.session_state.historico:
     st.markdown("**Vizinhos (1 de cada lado):**")
     st.write(f"**{vizinhos}**")
     
+    # ESTRATÉGIA 2: Números Não Sorteados (Nova Estratégia)
+    st.markdown("### 🎯 Estratégia 2: Números Atrasados")
+    
+    # Analisa números não sorteados nas últimas 50 rodadas
+    numeros_atrasados = obter_numeros_nao_sorteados(50)
+    
+    if numeros_atrasados:
+        st.markdown(f"**Números que NÃO saíram nas últimas 50 rodadas ({len(numeros_atrasados)} números):**")
+        st.write(f"**{numeros_atrasados}**")
+        
+        # Se houver números atrasados, calcula também seus vizinhos
+        if numeros_atrasados:
+            vizinhos_atrasados = obter_vizinhos_roleta(numeros_atrasados)
+            st.markdown("**Vizinhos dos números atrasados:**")
+            st.write(f"**{vizinhos_atrasados}**")
+            
+            apostas_atrasados = sorted(list(set(numeros_atrasados) | set(vizinhos_atrasados)))
+            st.markdown("**Apostas Estratégia 2 (Números + Vizinhos):**")
+            st.write(f"**{apostas_atrasados}**")
+    else:
+        st.write("Aguardando mais dados para análise (mínimo 50 rodadas)")
+    
     # Histórico recente
     st.subheader("📈 Últimos números sorteados")
     st.write(" → ".join(map(str, st.session_state.historico[-10:])))
     
+    # Estatísticas rápidas
+    st.subheader("📊 Estatísticas")
+    st.write(f"Total de registros: {len(st.session_state.historico)}")
+    
+    if len(st.session_state.historico) >= 50:
+        ultimos_50 = st.session_state.historico[-50:]
+        numeros_unicos = len(set(ultimos_50))
+        st.write(f"Números únicos nos últimos 50: {numeros_unicos}/37")
+        st.write(f"Números repetidos: {50 - numeros_unicos}")
+    
     # Resultados das Apostas
-    st.subheader("📊 Resultados das Apostas")
+    st.subheader("🎲 Resultados das Apostas")
     if st.session_state.resultados:
         resultados_display = " ".join(list(st.session_state.resultados)[-20:])
         st.write(resultados_display)
-        st.write(f"Total de registros: {len(st.session_state.resultados)}")
+        st.write(f"Total de apostas: {len(st.session_state.resultados)}")
+        
+        total_green = list(st.session_state.resultados).count("1")
+        total_red = list(st.session_state.resultados).count("X")
+        if len(st.session_state.resultados) > 0:
+            st.write(f"GREEN: {total_green} | RED: {total_red} | Taxa de acerto: {(total_green/len(st.session_state.resultados)*100):.1f}%")
     else:
         st.write("Aguardando próximos resultados...")
 
