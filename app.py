@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from collections import defaultdict, deque
+from collections import deque
 
 # Configuração inicial
 if 'historico' not in st.session_state:
@@ -10,43 +10,14 @@ if 'resultados' not in st.session_state:
 
 # Mapa de vizinhos da roleta europeia
 vizinhos_map = {
-    0: [32, 26],
-    1: [20, 33],
-    2: [21, 25],
-    3: [26, 35],
-    4: [19, 21],
-    5: [24, 10],
-    6: [27, 34],
-    7: [28, 29],
-    8: [23, 30],
-    9: [31, 22],
-    10: [5, 16],
-    11: [30, 36],
-    12: [35, 28],
-    13: [27, 36],
-    14: [20, 31],
-    15: [32, 19],
-    16: [10, 24],
-    17: [25, 34],
-    18: [29, 22],
-    19: [15, 4],
-    20: [1, 14],
-    21: [4, 2],
-    22: [18, 31],
-    23: [8, 33],
-    24: [5, 16],
-    25: [17, 2],
-    26: [3, 0],
-    27: [6, 13],
-    28: [7, 12],
-    29: [18, 7],
-    30: [8, 11],
-    31: [14, 9],
-    32: [15, 0],
-    33: [1, 23],
-    34: [6, 17],
-    35: [3, 12],
-    36: [13, 11]
+    0: [32, 26], 1: [20, 33], 2: [21, 25], 3: [26, 35], 4: [19, 21],
+    5: [24, 10], 6: [27, 34], 7: [28, 29], 8: [23, 30], 9: [31, 22],
+    10: [5, 16], 11: [30, 36], 12: [35, 28], 13: [27, 36], 14: [20, 31],
+    15: [32, 19], 16: [10, 24], 17: [25, 34], 18: [29, 22], 19: [15, 4],
+    20: [1, 14], 21: [4, 2], 22: [18, 31], 23: [8, 33], 24: [5, 16],
+    25: [17, 2], 26: [3, 0], 27: [6, 13], 28: [7, 12], 29: [18, 7],
+    30: [8, 11], 31: [14, 9], 32: [15, 0], 33: [1, 23], 34: [6, 17],
+    35: [3, 12], 36: [13, 11]
 }
 
 def obter_vizinhos_roleta(numeros):
@@ -58,9 +29,9 @@ def obter_vizinhos_roleta(numeros):
             todos_vizinhos.update(vizinhos)
     return sorted(list(todos_vizinhos))
 
-def obter_palpite_por_ocorrencias(numero_alvo):
-    """Obtém o palpite baseado nas últimas 3 ocorrências do número"""
-    numeros_palpite = set()
+def obter_ultimas_ocorrencias(numero_alvo):
+    """Obtém as últimas 3 ocorrências do número com seus vizinhos"""
+    ocorrencias_com_vizinhos = []
     
     # Encontra todas as posições do número no histórico
     posicoes = [i for i, num in enumerate(st.session_state.historico) if num == numero_alvo]
@@ -69,46 +40,42 @@ def obter_palpite_por_ocorrencias(numero_alvo):
     ultimas_posicoes = posicoes[-3:] if len(posicoes) >= 3 else posicoes
     
     for pos in ultimas_posicoes:
-        # Número antes
-        if pos > 0:
-            antes = st.session_state.historico[pos - 1]
-            numeros_palpite.add(antes)
-        
-        # Próprio número (o que saiu)
-        numeros_palpite.add(st.session_state.historico[pos])
-        
-        # Número depois
-        if pos < len(st.session_state.historico) - 1:
-            depois = st.session_state.historico[pos + 1]
-            numeros_palpite.add(depois)
+        ocorrencia = {
+            'posicao': pos,
+            'numero': st.session_state.historico[pos],
+            'antes': st.session_state.historico[pos - 1] if pos > 0 else None,
+            'depois': st.session_state.historico[pos + 1] if pos < len(st.session_state.historico) - 1 else None
+        }
+        ocorrencias_com_vizinhos.append(ocorrencia)
     
-    return sorted(list(numeros_palpite))
-
-def calcular_apostas_finais(numeros_palpite):
-    """Combina números do palpite com seus vizinhos"""
-    vizinhos = obter_vizinhos_roleta(numeros_palpite)
-    apostas_finais = set(numeros_palpite)
-    apostas_finais.update(vizinhos)
-    return sorted(list(apostas_finais))
-
-def verificar_resultado_aposta(numero_sorteado, apostas_finais):
-    """Verifica se o número sorteado está nas apostas finais"""
-    if numero_sorteado in apostas_finais:
-        return "1"  # GREEN
-    else:
-        return "X"  # RED
+    return ocorrencias_com_vizinhos
 
 def registrar_numero(numero):
     # Primeiro verifica o resultado da aposta anterior
     if len(st.session_state.historico) >= 1:
         ultimo_sorteado_anterior = st.session_state.historico[-1]
-        numeros_palpite_anterior = obter_palpite_por_ocorrencias(ultimo_sorteado_anterior)
-        apostas_finais_anterior = calcular_apostas_finais(numeros_palpite_anterior)
+        ocorrencias_anterior = obter_ultimas_ocorrencias(ultimo_sorteado_anterior)
         
-        resultado = verificar_resultado_aposta(numero, apostas_finais_anterior)
-        st.session_state.resultados.append(resultado)
+        # Coleta todos os números para apostar (antes, próprio, depois)
+        numeros_aposta = set()
+        for ocorrencia in ocorrencias_anterior:
+            if ocorrencia['antes'] is not None:
+                numeros_aposta.add(ocorrencia['antes'])
+            numeros_aposta.add(ocorrencia['numero'])
+            if ocorrencia['depois'] is not None:
+                numeros_aposta.add(ocorrencia['depois'])
+        
+        # Calcula vizinhos
+        vizinhos = obter_vizinhos_roleta(list(numeros_aposta))
+        apostas_finais = sorted(list(set(numeros_aposta) | set(vizinhos)))
+        
+        # Verifica resultado
+        if numero in apostas_finais:
+            st.session_state.resultados.append("1")  # GREEN
+        else:
+            st.session_state.resultados.append("X")  # RED
     
-    # Depois adiciona o novo número ao histórico
+    # Adiciona o novo número ao histórico
     st.session_state.historico.append(numero)
 
 # Interface
@@ -135,28 +102,44 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Erro ao ler arquivo: {e}")
 
-# Exibição das estratégias
+# Exibição simplificada
 if st.session_state.historico:
     ultimo_numero = st.session_state.historico[-1]
     
-    # Obter palpite baseado nas ocorrências
-    numeros_palpite = obter_palpite_por_ocorrencias(ultimo_numero)
-    
-    # Calcular apostas finais
-    apostas_finais = calcular_apostas_finais(numeros_palpite)
+    # Obtém as últimas ocorrências
+    ocorrencias = obter_ultimas_ocorrencias(ultimo_numero)
     
     st.subheader(f"Último número sorteado: {ultimo_numero}")
     
-    # Estratégia Principal
-    st.markdown("**🎯 Estratégia Principal**")
-    st.write(f"**Números para apostar:** V{numeros_palpite}")
+    # Mostra as últimas ocorrências
+    st.markdown("**Últimas vezes que saiu:**")
+    for i, ocorrencia in enumerate(ocorrencias, 1):
+        antes = f"{ocorrencia['antes']} → " if ocorrencia['antes'] is not None else ""
+        depois = f" → {ocorrencia['depois']}" if ocorrencia['depois'] is not None else ""
+        st.write(f"{i}. {antes}{ocorrencia['numero']}{depois}")
     
-    # Vizinhos
-    vizinhos = obter_vizinhos_roleta(numeros_palpite)
-    st.write(f"**Vizinhos dos palpites:** {vizinhos}")
+    # Coleta todos os números para apostar
+    numeros_aposta = set()
+    for ocorrencia in ocorrencias:
+        if ocorrencia['antes'] is not None:
+            numeros_aposta.add(ocorrencia['antes'])
+        numeros_aposta.add(ocorrencia['numero'])
+        if ocorrencia['depois'] is not None:
+            numeros_aposta.add(ocorrencia['depois'])
+    
+    numeros_aposta = sorted(list(numeros_aposta))
+    
+    # Calcula vizinhos
+    vizinhos = obter_vizinhos_roleta(numeros_aposta)
     
     # Apostas finais
-    st.write(f"**APOSTAS FINAIS (Palpite + Vizinhos):** {apostas_finais}")
+    apostas_finais = sorted(list(set(numeros_aposta) | set(vizinhos)))
+    
+    st.markdown("**Apostar nos números:**")
+    st.write(f"**V{numeros_aposta}**")
+    
+    st.markdown("**Vizinhos (1 de cada lado):**")
+    st.write(f"**{vizinhos}**")
     
     # Histórico recente
     st.subheader("📈 Últimos números sorteados")
@@ -168,11 +151,6 @@ if st.session_state.historico:
         resultados_display = " ".join(list(st.session_state.resultados)[-20:])
         st.write(resultados_display)
         st.write(f"Total de registros: {len(st.session_state.resultados)}")
-        
-        total_green = list(st.session_state.resultados).count("1")
-        total_red = list(st.session_state.resultados).count("X")
-        if len(st.session_state.resultados) > 0:
-            st.write(f"GREEN: {total_green} | RED: {total_red} | Taxa de acerto: {(total_green/len(st.session_state.resultados)*100):.1f}%")
     else:
         st.write("Aguardando próximos resultados...")
 
@@ -185,7 +163,7 @@ if st.button("📥 Exportar Histórico"):
         
         df = pd.DataFrame({
             'Número': st.session_state.historico,
-            'Resultado_Aposta': [''] + resultados_export  # Primeiro número não tem resultado
+            'Resultado_Aposta': [''] + resultados_export
         })
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
