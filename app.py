@@ -139,7 +139,8 @@ if st.session_state.historico:
     # Resultados das Apostas
     st.subheader("🎲 Resultados das Apostas")
     if st.session_state.resultados:
-        resultados_display = " ".join(list(st.session_state.resultados)[-20:])
+        # CORREÇÃO: Mostrar TODOS os resultados, não apenas os últimos 20
+        resultados_display = " ".join(list(st.session_state.resultados))
         st.write(resultados_display)
         st.write(f"Total de apostas registradas: {len(st.session_state.resultados)}")
         
@@ -149,8 +150,9 @@ if st.session_state.historico:
             taxa_acerto = (total_green / len(st.session_state.resultados)) * 100
             st.write(f"**GREEN: {total_green}** | **RED: {total_red}** | **Taxa de acerto: {taxa_acerto:.1f}%**")
             
-            # Estatísticas adicionais
-            st.write(f"**Sequência atual:** {list(st.session_state.resultados)[-5:]}")
+            # Mostrar também os últimos 20 para referência rápida
+            if len(st.session_state.resultados) > 20:
+                st.write(f"**Últimos 20 resultados:** {" ".join(list(st.session_state.resultados)[-20:])}")
     else:
         st.write("Aguardando próximos resultados... (mínimo 50 rodadas para análise)")
 
