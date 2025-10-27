@@ -11,8 +11,8 @@ if 'banca' not in st.session_state:
     st.session_state.banca = 1000
 if 'historico_banca' not in st.session_state:
     st.session_state.historico_banca = [1000]
-if 'analise_vizinhos' not in st.session_state:
-    st.session_state.analise_vizinhos = {}
+if 'analise_estrategia' not in st.session_state:
+    st.session_state.analise_estrategia = {}
 
 # Mapa de vizinhos da roleta europeia
 vizinhos_map = {
@@ -34,51 +34,6 @@ def obter_vizinhos_roleta(numeros):
             vizinhos = vizinhos_map[numero]
             todos_vizinhos.update(vizinhos)
     return sorted(list(todos_vizinhos))
-
-def analisar_tempo_vizinhos():
-    """Analisa quantas rodadas demorou para sair cada vizinho após cada número"""
-    st.session_state.analise_vizinhos = {}
-    
-    if len(st.session_state.historico) < 2:
-        return
-    
-    for i in range(len(st.session_state.historico) - 1):
-        numero_atual = st.session_state.historico[i]
-        vizinhos = vizinhos_map.get(numero_atual, [])
-        
-        if numero_atual not in st.session_state.analise_vizinhos:
-            st.session_state.analise_vizinhos[numero_atual] = {}
-        
-        # Para cada vizinho, verifica quando ele saiu depois
-        for vizinho in vizinhos:
-            if vizinho not in st.session_state.analise_vizinhos[numero_atual]:
-                st.session_state.analise_vizinhos[numero_atual][vizinho] = []
-            
-            # Procura a próxima ocorrência deste vizinho
-            for j in range(i + 1, len(st.session_state.historico)):
-                if st.session_state.historico[j] == vizinho:
-                    tempo = j - i
-                    st.session_state.analise_vizinhos[numero_atual][vizinho].append(tempo)
-                    break
-
-def calcular_estatisticas_vizinhos():
-    """Calcula estatísticas dos tempos dos vizinhos"""
-    estatisticas = {}
-    
-    for numero, vizinhos_data in st.session_state.analise_vizinhos.items():
-        estatisticas[numero] = {}
-        
-        for vizinho, tempos in vizinhos_data.items():
-            if tempos:
-                estatisticas[numero][vizinho] = {
-                    'media': sum(tempos) / len(tempos),
-                    'min': min(tempos),
-                    'max': max(tempos),
-                    'qtd': len(tempos),
-                    'ultimos_5': tempos[-5:] if len(tempos) >= 5 else tempos
-                }
-    
-    return estatisticas
 
 def obter_ultimas_ocorrencias_anteriores(numero_alvo, excluir_ultima=True):
     """Obtém as últimas 3 ocorrências ANTERIORES do número (excluindo a última ocorrência)"""
@@ -134,36 +89,91 @@ def calcular_apostas_para_numero(numero_alvo, excluir_ultima_ocorrencia=True):
     
     return numeros_aposta, vizinhos, apostas_com_duplicatas
 
-def calcular_fichas_aposta(apostas_com_duplicatas):
-    """Calcula quantas fichas serão colocadas em cada número"""
-    fichas_por_numero = {}
+def analisar_desempenho_estrategia():
+    """Analisa quanto tempo a estratégia demorou para dar GREEN em cada caso"""
+    st.session_state.analise_estrategia = {}
     
-    for numero in apostas_com_duplicatas:
-        if numero in fichas_por_numero:
-            fichas_por_numero[numero] += 1
-        else:
-            fichas_por_numero[numero] = 1
+    if len(st.session_state.historico) < 2:
+        return
     
-    return fichas_por_numero
+    for i in range(len(st.session_state.historico) - 1):
+        numero_que_gerou_aposta = st.session_state.historico[i]
+        
+        # Calcula as apostas que seriam feitas naquele momento
+        numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
+            numero_que_gerou_aposta, excluir_ultima_ocorrencia=True
+        )
+        
+        if not numeros_aposta:
+            continue  # Não havia apostas naquele momento
+        
+        # Cria uma chave única para esta configuração de apostas
+        chave_estrategia = tuple(sorted(set(apostas_com_duplicatas)))
+        
+        if chave_estrategia not in st.session_state.analise_estrategia:
+            st.session_state.analise_estrategia[chave_estrategia] = {
+                'numeros_aposta': numeros_aposta,
+                'vizinhos': vizinhos,
+                'apostas_finais': sorted(list(set(apostas_com_duplicatas))),
+                'tempos_green': [],
+                'numero_origem': numero_que_gerou_aposta
+            }
+        
+        # Procura quando deu GREEN (próximo número nas apostas)
+        for j in range(i + 1, len(st.session_state.historico)):
+            if st.session_state.historico[j] in apostas_com_duplicatas:
+                tempo_green = j - i
+                st.session_state.analise_estrategia[chave_estrategia]['tempos_green'].append(tempo_green)
+                break
 
-def calcular_custo_aposta(fichas_por_numero):
-    """Calcula o custo total da aposta"""
-    return sum(fichas_por_numero.values())
+def calcular_estatisticas_estrategia():
+    """Calcula estatísticas do desempenho da estratégia"""
+    estatisticas = {}
+    
+    for chave, dados in st.session_state.analise_estrategia.items():
+        if dados['tempos_green']:
+            estatisticas[chave] = {
+                'numero_origem': dados['numero_origem'],
+                'numeros_aposta': dados['numeros_aposta'],
+                'vizinhos': dados['vizinhos'],
+                'apostas_finais': dados['apostas_finais'],
+                'media_tempo': sum(dados['tempos_green']) / len(dados['tempos_green']),
+                'min_tempo': min(dados['tempos_green']),
+                'max_tempo': max(dados['tempos_green']),
+                'qtd_greens': len(dados['tempos_green']),
+                'taxa_sucesso': (len(dados['tempos_green']) / len(st.session_state.historico)) * 100 if st.session_state.historico else 0
+            }
+    
+    return estatisticas
 
-def calcular_premiacao(numero_sorteado, fichas_por_numero, custo_aposta):
-    """Calcula a premiação se o número sorteado estiver nas apostas"""
-    if numero_sorteado in fichas_por_numero:
-        fichas_no_numero = fichas_por_numero[numero_sorteado]
-        premio = fichas_no_numero * 36
-        lucro = premio - custo_aposta
-        return premio, lucro, True  # GREEN
-    else:
-        return 0, -custo_aposta, False  # RED
+def encontrar_estrategia_similar(estrategia_atual, estatisticas):
+    """Encontra estratégias similares no histórico"""
+    estrategias_similares = []
+    apostas_atuais_set = set(estrategia_atual)
+    
+    for chave, stats in estatisticas.items():
+        apostas_historico_set = set(stats['apostas_finais'])
+        
+        # Calcula similaridade (quantos números em comum)
+        numeros_comuns = len(apostas_atuais_set.intersection(apostas_historico_set))
+        total_numeros = len(apostas_atuais_set.union(apostas_historico_set))
+        similaridade = (numeros_comuns / total_numeros) * 100 if total_numeros > 0 else 0
+        
+        if similaridade > 50:  # Mais de 50% de similaridade
+            estrategias_similares.append({
+                'similaridade': similaridade,
+                'estatisticas': stats
+            })
+    
+    # Ordena por similaridade
+    return sorted(estrategias_similares, key=lambda x: x['similaridade'], reverse=True)
+
+# ... (mantenha as outras funções calcular_fichas_aposta, calcular_custo_aposta, calcular_premiacao, verificar_apostas_do_historico, registrar_numero)
 
 def verificar_apostas_do_historico():
     """Verifica TODAS as apostas do histórico carregado"""
     st.session_state.resultados.clear()
-    st.session_state.historico_banca = [1000]  # Banca inicial
+    st.session_state.historico_banca = [1000]
     st.session_state.banca = 1000
     
     if len(st.session_state.historico) <= 1:
@@ -230,7 +240,7 @@ def registrar_numero(numero):
             st.session_state.resultados.append("X")
 
 # Interface
-st.title("🎯 Análise de Padrão de Vizinhos + Estratégia")
+st.title("🎯 Análise de Desempenho da Estratégia")
 
 # Controles
 col1, col2 = st.columns(2)
@@ -260,88 +270,30 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Erro ao ler arquivo: {e}")
 
-# Análise de Vizinhos
-st.markdown("## 📊 Análise de Padrão de Vizinhos")
+# Análise de Desempenho da Estratégia
+st.markdown("## 📊 Análise de Desempenho da Estratégia")
 
-if st.button("🔍 Analisar Tempo dos Vizinhos"):
+if st.button("🔍 Analisar Desempenho da Estratégia"):
     if st.session_state.historico:
-        analisar_tempo_vizinhos()
-        st.success("Análise concluída!")
+        analisar_desempenho_estrategia()
+        st.success("Análise de desempenho concluída!")
     else:
         st.warning("Carregue um histórico primeiro")
 
-if st.session_state.analise_vizinhos:
-    estatisticas = calcular_estatisticas_vizinhos()
-    
-    # Selecionar número para análise
-    numero_analise = st.selectbox(
-        "Selecione um número para análise detalhada:",
-        sorted(estatisticas.keys())
-    )
-    
-    if numero_analise:
-        st.markdown(f"### 📈 Análise do Número {numero_analise}")
-        
-        vizinhos_data = estatisticas[numero_analise]
-        
-        # Tabela de estatísticas
-        st.markdown("**Estatísticas dos Vizinhos:**")
-        dados_tabela = []
-        for vizinho, stats in vizinhos_data.items():
-            dados_tabela.append({
-                'Vizinho': vizinho,
-                'Média (rodadas)': f"{stats['media']:.1f}",
-                'Mínimo': stats['min'],
-                'Máximo': stats['max'],
-                'Ocorrências': stats['qtd'],
-                'Últimos 5': str(stats['ultimos_5'])
-            })
-        
-        if dados_tabela:
-            df_estatisticas = pd.DataFrame(dados_tabela)
-            st.dataframe(df_estatisticas, use_container_width=True)
-            
-            # Tabela simplificada para visualização rápida
-            st.markdown("**Resumo por Vizinho:**")
-            for vizinho, stats in vizinhos_data.items():
-                st.write(f"**Vizinho {vizinho}:** Média {stats['media']:.1f} rodadas "
-                        f"(min {stats['min']}, max {stats['max']}) - "
-                        f"{stats['qtd']} ocorrências")
-        
-        # Tabela geral de todos os números
-        st.markdown("### 📋 Visão Geral de Todos os Números")
-        
-        dados_gerais = []
-        for numero in sorted(estatisticas.keys()):
-            if estatisticas[numero]:
-                media_geral = sum(stats['media'] for stats in estatisticas[numero].values()) / len(estatisticas[numero])
-                vizinho_mais_rapido = min(estatisticas[numero].items(), key=lambda x: x[1]['media'])
-                vizinho_mais_lento = max(estatisticas[numero].items(), key=lambda x: x[1]['media'])
-                
-                dados_gerais.append({
-                    'Número': numero,
-                    'Média Geral': f"{media_geral:.1f}",
-                    'Vizinho Mais Rápido': f"{vizinho_mais_rapido[0]} ({vizinho_mais_rapido[1]['media']:.1f} rod)",
-                    'Vizinho Mais Lento': f"{vizinho_mais_lento[0]} ({vizinho_mais_lento[1]['media']:.1f} rod)",
-                    'Total Vizinhos': len(estatisticas[numero])
-                })
-        
-        if dados_gerais:
-            df_geral = pd.DataFrame(dados_gerais)
-            st.dataframe(df_geral, use_container_width=True)
-
-# Estratégia Principal
+# Estratégia Atual + Análise
 if st.session_state.historico:
     ultimo_numero = st.session_state.historico[-1]
     
-    st.markdown("## 🎯 Estratégia Principal")
+    st.markdown("## 🎯 Estratégia Atual")
     st.subheader(f"Último número sorteado: {ultimo_numero}")
     
+    # Calcula a estratégia atual
     numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
         ultimo_numero, excluir_ultima_ocorrencia=True
     )
     fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
     custo_aposta = calcular_custo_aposta(fichas_por_numero)
+    apostas_finais = sorted(list(set(apostas_com_duplicatas)))
     
     ocorrencias = obter_ultimas_ocorrencias_anteriores(ultimo_numero, excluir_ultima=True)
     
@@ -356,18 +308,48 @@ if st.session_state.historico:
         st.markdown("**Próximas Apostas:**")
         st.write(f"**Números:** {numeros_aposta}")
         st.write(f"**Vizinhos:** {vizinhos}")
+        st.write(f"**Apostas Finais:** {apostas_finais}")
         st.write(f"**Custo:** ${custo_aposta:,.2f}")
         
-        # Mostrar estatísticas dos vizinhos se disponível
-        if (st.session_state.analise_vizinhos and 
-            ultimo_numero in st.session_state.analise_vizinhos):
+        # Análise de desempenho para estratégia similar
+        if st.session_state.analise_estrategia:
+            estatisticas = calcular_estatisticas_estrategia()
+            estrategias_similares = encontrar_estrategia_similar(apostas_finais, estatisticas)
             
-            st.markdown("**📊 Estatísticas dos Vizinhos (Histórico):**")
-            vizinhos_stats = st.session_state.analise_vizinhos[ultimo_numero]
-            for vizinho, tempos in vizinhos_stats.items():
-                if tempos:
-                    media = sum(tempos) / len(tempos)
-                    st.write(f"- Vizinho {vizinho}: {len(tempos)}x, média {media:.1f} rodadas")
+            st.markdown("## 📈 Desempenho de Estratégias Similares")
+            
+            if estrategias_similares:
+                st.markdown(f"**Encontradas {len(estrategias_similares)} estratégias similares no histórico:**")
+                
+                for i, estrategia in enumerate(estrategias_similares[:5], 1):  # Mostra as 5 mais similares
+                    stats = estrategia['estatisticas']
+                    st.markdown(f"**Estratégia Similar #{i}** ({(estrategia['similaridade']):.1f}% similar)")
+                    st.write(f"**Número de origem:** {stats['numero_origem']}")
+                    st.write(f"**Tempo médio para GREEN:** {stats['media_tempo']:.1f} rodadas")
+                    st.write(f"**Melhor caso:** {stats['min_tempo']} rodadas | **Pior caso:** {stats['max_tempo']} rodadas")
+                    st.write(f"**Greens registrados:** {stats['qtd_greens']} | **Taxa de sucesso:** {stats['taxa_sucesso']:.1f}%")
+                    st.write("---")
+            else:
+                st.info("Nenhuma estratégia similar encontrada no histórico.")
+        
+        # Estatísticas gerais da estratégia
+        if st.session_state.analise_estrategia:
+            estatisticas = calcular_estatisticas_estrategia()
+            
+            st.markdown("## 📋 Estatísticas Gerais da Estratégia")
+            
+            if estatisticas:
+                # Calcula médias gerais
+                todos_tempos = []
+                for stats in estatisticas.values():
+                    todos_tempos.extend(stats['tempos_green'] if 'tempos_green' in stats else [])
+                
+                if todos_tempos:
+                    st.write(f"**Desempenho Geral da Estratégia:**")
+                    st.write(f"- Tempo médio para GREEN: {sum(todos_tempos)/len(todos_tempos):.1f} rodadas")
+                    st.write(f"- Melhor caso: {min(todos_tempos)} rodadas")
+                    st.write(f"- Pior caso: {max(todos_tempos)} rodadas")
+                    st.write(f"- Total de greens analisados: {len(todos_tempos)}")
 
 # Resultados
 st.markdown("## 🎲 Resultados das Apostas")
@@ -399,6 +381,6 @@ with col2:
         st.session_state.banca = 1000
         st.session_state.historico_banca = [1000]
         st.session_state.resultados.clear()
-        st.session_state.analise_vizinhos.clear()
+        st.session_state.analise_estrategia.clear()
         st.success("Sistema resetado!")
         st.rerun()
