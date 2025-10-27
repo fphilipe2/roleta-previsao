@@ -89,6 +89,32 @@ def calcular_apostas_para_numero(numero_alvo, excluir_ultima_ocorrencia=True):
     
     return numeros_aposta, vizinhos, apostas_com_duplicatas
 
+def calcular_fichas_aposta(apostas_com_duplicatas):
+    """Calcula quantas fichas serão colocadas em cada número"""
+    fichas_por_numero = {}
+    
+    for numero in apostas_com_duplicatas:
+        if numero in fichas_por_numero:
+            fichas_por_numero[numero] += 1
+        else:
+            fichas_por_numero[numero] = 1
+    
+    return fichas_por_numero
+
+def calcular_custo_aposta(fichas_por_numero):
+    """Calcula o custo total da aposta"""
+    return sum(fichas_por_numero.values())
+
+def calcular_premiacao(numero_sorteado, fichas_por_numero, custo_aposta):
+    """Calcula a premiação se o número sorteado estiver nas apostas"""
+    if numero_sorteado in fichas_por_numero:
+        fichas_no_numero = fichas_por_numero[numero_sorteado]
+        premio = fichas_no_numero * 36
+        lucro = premio - custo_aposta
+        return premio, lucro, True  # GREEN
+    else:
+        return 0, -custo_aposta, False  # RED
+
 def analisar_desempenho_estrategia():
     """Analisa quanto tempo a estratégia demorou para dar GREEN em cada caso"""
     st.session_state.analise_estrategia = {}
@@ -167,8 +193,6 @@ def encontrar_estrategia_similar(estrategia_atual, estatisticas):
     
     # Ordena por similaridade
     return sorted(estrategias_similares, key=lambda x: x['similaridade'], reverse=True)
-
-# ... (mantenha as outras funções calcular_fichas_aposta, calcular_custo_aposta, calcular_premiacao, verificar_apostas_do_historico, registrar_numero)
 
 def verificar_apostas_do_historico():
     """Verifica TODAS as apostas do histórico carregado"""
@@ -323,7 +347,7 @@ if st.session_state.historico:
                 
                 for i, estrategia in enumerate(estrategias_similares[:5], 1):  # Mostra as 5 mais similares
                     stats = estrategia['estatisticas']
-                    st.markdown(f"**Estratégia Similar #{i}** ({(estrategia['similaridade']):.1f}% similar)")
+                    st.markdown(f"**Estratégia Similar #{i}** ({estrategia['similaridade']:.1f}% similar)")
                     st.write(f"**Número de origem:** {stats['numero_origem']}")
                     st.write(f"**Tempo médio para GREEN:** {stats['media_tempo']:.1f} rodadas")
                     st.write(f"**Melhor caso:** {stats['min_tempo']} rodadas | **Pior caso:** {stats['max_tempo']} rodadas")
@@ -342,7 +366,7 @@ if st.session_state.historico:
                 # Calcula médias gerais
                 todos_tempos = []
                 for stats in estatisticas.values():
-                    todos_tempos.extend(stats['tempos_green'] if 'tempos_green' in stats else [])
+                    todos_tempos.extend(stats.get('tempos_green', []))
                 
                 if todos_tempos:
                     st.write(f"**Desempenho Geral da Estratégia:**")
