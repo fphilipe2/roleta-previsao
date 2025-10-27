@@ -12,10 +12,6 @@ if 'aposta_atual' not in st.session_state:
     st.session_state.aposta_atual = None
 if 'ciclo_atual' not in st.session_state:
     st.session_state.ciclo_atual = 1
-if 'reds_consecutivos' not in st.session_state:
-    st.session_state.reds_consecutivos = 0
-if 'proximo_numero_origem' not in st.session_state:
-    st.session_state.proximo_numero_origem = None
 
 # Mapa de vizinhos
 vizinhos_map = {
@@ -87,20 +83,17 @@ def criar_aposta_rapido(numero):
     }
 
 def processar_numero_rapido(numero):
-    """Processamento ULTRA rápido com nova lógica"""
-    # Se não há aposta, cria uma com o número atual
+    """Processamento ULTRA rápido"""
+    # Se não há aposta, cria uma
     if st.session_state.aposta_atual is None:
         aposta = criar_aposta_rapido(numero)
         if aposta:
             st.session_state.aposta_atual = aposta
-            st.session_state.reds_consecutivos = 0
-            st.session_state.proximo_numero_origem = None
         else:
             st.session_state.resultados.append("N")
         return
     
     aposta = st.session_state.aposta_atual
-    numero_origem_atual = aposta['numero_origem']
     
     # Verifica GREEN instantaneamente
     if numero in aposta['apostas_finais']:
@@ -111,12 +104,9 @@ def processar_numero_rapido(numero):
         st.session_state.banca += lucro
         st.session_state.resultados.append("1")
         
-        # GREEN: número que saiu vira nova origem
-        novo_numero_origem = numero
-        st.session_state.aposta_atual = criar_aposta_rapido(novo_numero_origem)
-        st.session_state.reds_consecutivos = 0
-        st.session_state.proximo_numero_origem = None
+        # Novo ciclo
         st.session_state.ciclo_atual += 1
+        st.session_state.aposta_atual = criar_aposta_rapido(numero)
         
     else:
         # RED
@@ -124,26 +114,9 @@ def processar_numero_rapido(numero):
         st.session_state.resultados.append("X")
         aposta['rodadas_apostadas'] += 1
         aposta['custo_acumulado'] += aposta['custo_aposta']
-        
-        # Incrementa contador de REDs
-        st.session_state.reds_consecutivos += 1
-        
-        # Se é o PRIMEIRO RED, define o próximo número origem
-        if st.session_state.reds_consecutivos == 1:
-            # O próximo número origem é o número que ACABOU de sair (o RED atual)
-            st.session_state.proximo_numero_origem = numero
-        
-        # Se chegou ao TERCEIRO RED, faz a troca
-        if st.session_state.reds_consecutivos == 3:
-            if st.session_state.proximo_numero_origem is not None:
-                # Troca para o próximo número origem definido no 1º RED
-                novo_numero_origem = st.session_state.proximo_numero_origem
-                st.session_state.aposta_atual = criar_aposta_rapido(novo_numero_origem)
-                st.session_state.reds_consecutivos = 0
-                st.session_state.proximo_numero_origem = None
 
 # Interface ULTRA LEVE
-st.title("⚡ Sistema Rápido - Nova Lógica")
+st.title("⚡ Sistema Rápido - Ciclos")
 
 # Controles
 numero = st.number_input("Número sorteado (0-36)", 0, 36, key="num_input")
@@ -162,8 +135,6 @@ with col2:
         st.session_state.banca = 1000
         st.session_state.aposta_atual = None
         st.session_state.ciclo_atual = 1
-        st.session_state.reds_consecutivos = 0
-        st.session_state.proximo_numero_origem = None
         st.rerun()
 with col3:
     if st.button("📊 Stats", use_container_width=True):
@@ -189,8 +160,6 @@ if uploaded_file:
             st.session_state.banca = 1000
             st.session_state.aposta_atual = None
             st.session_state.ciclo_atual = 1
-            st.session_state.reds_consecutivos = 0
-            st.session_state.proximo_numero_origem = None
             
             # Processa CADA número individualmente (mais rápido)
             progress_bar = st.progress(0)
@@ -214,27 +183,13 @@ st.subheader("🔄 Ciclo Atual")
 if st.session_state.aposta_atual:
     aposta = st.session_state.aposta_atual
     
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Ciclo", st.session_state.ciclo_atual)
-    with col2:
-        st.metric("Origem", aposta['numero_origem'])
-    with col3:
-        st.metric("REDs", f"{st.session_state.reds_consecutivos}/3")
-    with col4:
-        st.metric("Banca", f"${st.session_state.banca:.2f}")
+    st.write(f"**Ciclo {st.session_state.ciclo_atual}** | Origem: **{aposta['numero_origem']}**")
+    st.write(f"Rodadas: **{aposta['rodadas_apostadas']}** | Custo acumulado: **${aposta['custo_acumulado']:.2f}**")
     
-    st.write(f"**Rodadas:** {aposta['rodadas_apostadas']} | **Custo acumulado:** ${aposta['custo_acumulado']:.2f}")
-    
-    # Mostra próximo número origem se definido
-    if st.session_state.proximo_numero_origem is not None:
-        st.info(f"📌 **Próxima origem (se 3º RED):** {st.session_state.proximo_numero_origem}")
-    
-    with st.expander("📋 Ver Aposta", expanded=False):
-        st.write(f"**Números base:** {aposta['numeros_aposta']}")
+    with st.expander("📋 Ver Aposta", expanded=True):
+        st.write(f"**Números:** {aposta['numeros_aposta']}")
         st.write(f"**Vizinhos:** {aposta['vizinhos']}")
         st.write(f"**Custo/rodada:** ${aposta['custo_aposta']:.2f}")
-        st.write(f"**Total números:** {len(aposta['apostas_finais'])}")
         
 else:
     st.info("⏳ Aguardando primeiro número...")
@@ -264,6 +219,8 @@ if st.session_state.resultados:
             st.metric("🔴 RED", reds)
         with col3:
             st.metric("📈 Taxa", f"{(greens/total*100):.1f}%")
+    
+    st.metric("💰 Banca", f"${st.session_state.banca:.2f}")
 
 # Informações do histórico
 if st.session_state.historico:
@@ -271,10 +228,3 @@ if st.session_state.historico:
     st.write(f"📊 Histórico: {len(st.session_state.historico)} números")
     if len(st.session_state.historico) > 10:
         st.write(f"Últimos 10: {' → '.join(map(str, st.session_state.historico[-10:]))}")
-
-# Debug info
-with st.expander("🔍 Debug Info"):
-    st.write(f"REDs consecutivos: {st.session_state.reds_consecutivos}")
-    st.write(f"Próximo número origem: {st.session_state.proximo_numero_origem}")
-    if st.session_state.aposta_atual:
-        st.write(f"Número origem atual: {st.session_state.aposta_atual['numero_origem']}")
