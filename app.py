@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
-from collections import deque
+from collections import deque, defaultdict
+import plotly.graph_objects as go
+import plotly.express as px
 
 # Configuração inicial
 if 'historico' not in st.session_state:
@@ -11,6 +13,8 @@ if 'banca' not in st.session_state:
     st.session_state.banca = 1000
 if 'historico_banca' not in st.session_state:
     st.session_state.historico_banca = [1000]
+if 'analise_vizinhos' not in st.session_state:
+    st.session_state.analise_vizinhos = {}
 
 # Mapa de vizinhos da roleta europeia
 vizinhos_map = {
@@ -32,6 +36,51 @@ def obter_vizinhos_roleta(numeros):
             vizinhos = vizinhos_map[numero]
             todos_vizinhos.update(vizinhos)
     return sorted(list(todos_vizinhos))
+
+def analisar_tempo_vizinhos():
+    """Analisa quantas rodadas demorou para sair cada vizinho após cada número"""
+    st.session_state.analise_vizinhos = {}
+    
+    if len(st.session_state.historico) < 2:
+        return
+    
+    for i in range(len(st.session_state.historico) - 1):
+        numero_atual = st.session_state.historico[i]
+        vizinhos = vizinhos_map.get(numero_atual, [])
+        
+        if numero_atual not in st.session_state.analise_vizinhos:
+            st.session_state.analise_vizinhos[numero_atual] = {}
+        
+        # Para cada vizinho, verifica quando ele saiu depois
+        for vizinho in vizinhos:
+            if vizinho not in st.session_state.analise_vizinhos[numero_atual]:
+                st.session_state.analise_vizinhos[numero_atual][vizinho] = []
+            
+            # Procura a próxima ocorrência deste vizinho
+            for j in range(i + 1, len(st.session_state.historico)):
+                if st.session_state.historico[j] == vizinho:
+                    tempo = j - i
+                    st.session_state.analise_vizinhos[numero_atual][vizinho].append(tempo)
+                    break
+
+def calcular_estatisticas_vizinhos():
+    """Calcula estatísticas dos tempos dos vizinhos"""
+    estatisticas = {}
+    
+    for numero, vizinhos_data in st.session_state.analise_vizinhos.items():
+        estatisticas[numero] = {}
+        
+        for vizinho, tempos in vizinhos_data.items():
+            if tempos:
+                estatisticas[numero][vizinho] = {
+                    'media': sum(tempos) / len(tempos),
+                    'min': min(tempos),
+                    'max': max(tempos),
+                    'qtd': len(tempos),
+                    'ultimos_5': tempos[-5:] if len(tempos) >= 5 else tempos
+                }
+    
+    return estatisticas
 
 def obter_ultimas_ocorrencias_anteriores(numero_alvo, excluir_ultima=True):
     """Obtém as últimas 3 ocorrências ANTERIORES do número (excluindo a última ocorrência)"""
@@ -122,86 +171,68 @@ def verificar_apostas_do_historico():
     if len(st.session_state.historico) <= 1:
         return
     
-    # Para cada número a partir da posição 1, verifica as apostas baseadas no PRÓPRIO número
     for i in range(1, len(st.session_state.historico)):
         numero_atual = st.session_state.historico[i]
-        numero_que_gerou_aposta = st.session_state.historico[i]  # O PRÓPRIO número atual
+        numero_que_gerou_aposta = st.session_state.historico[i]
         
-        # Calcula apostas para o PRÓPRIO número (excluindo a última ocorrência)
         numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
             numero_que_gerou_aposta, excluir_ultima_ocorrencia=True
         )
         
-        # Se não há ocorrências anteriores suficientes, não há aposta
         if not numeros_aposta:
-            st.session_state.resultados.append("N")  # NO BET
+            st.session_state.resultados.append("N")
             st.session_state.historico_banca.append(st.session_state.banca)
             continue
         
-        # Calcula fichas e custo
         fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
         custo_aposta = calcular_custo_aposta(fichas_por_numero)
         
-        # Verifica resultado (o próximo número será verificado na próxima iteração)
-        # Para a última posição, não há próximo número para verificar
         if i < len(st.session_state.historico) - 1:
             proximo_numero = st.session_state.historico[i + 1]
             premio, lucro, is_green = calcular_premiacao(proximo_numero, fichas_por_numero, custo_aposta)
             
-            # Atualiza banca
             st.session_state.banca += lucro
             st.session_state.historico_banca.append(st.session_state.banca)
             
-            # Registra resultado
             if is_green:
                 st.session_state.resultados.append("1")
             else:
                 st.session_state.resultados.append("X")
         else:
-            # Último número do histórico - não tem próximo para verificar
             st.session_state.resultados.append("-")
             st.session_state.historico_banca.append(st.session_state.banca)
 
 def registrar_numero(numero):
     """Registra um novo número e verifica a aposta baseada no PRÓPRIO número"""
-    # Primeiro adiciona o número ao histórico
     st.session_state.historico.append(numero)
     
-    # Para verificar a aposta, precisamos de pelo menos 2 números no histórico
     if len(st.session_state.historico) >= 2:
-        # O número que vai gerar a aposta é o PENÚLTIMO (excluindo o que acabou de ser adicionado)
         numero_que_gerou_aposta = st.session_state.historico[-2]
         
-        # Calcula apostas para o número ANTERIOR (excluindo a última ocorrência)
         numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
             numero_que_gerou_aposta, excluir_ultima_ocorrencia=True
         )
         
-        # Se não há ocorrências anteriores suficientes, não há aposta
         if not numeros_aposta:
-            st.session_state.resultados.append("N")  # NO BET
+            st.session_state.resultados.append("N")
             st.session_state.historico_banca.append(st.session_state.banca)
             return
         
-        # Calcula fichas e custo
         fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
         custo_aposta = calcular_custo_aposta(fichas_por_numero)
         
-        # Verifica resultado com o número ATUAL (que acabou de ser adicionado)
         premio, lucro, is_green = calcular_premiacao(numero, fichas_por_numero, custo_aposta)
         
-        # Atualiza banca
         st.session_state.banca += lucro
         st.session_state.historico_banca.append(st.session_state.banca)
         
-        # Registra resultado
         if is_green:
             st.session_state.resultados.append("1")
         else:
             st.session_state.resultados.append("X")
 
 # Interface
-st.title("🎯 Estratégia Corrigida - Ocorrências Anteriores")
+st.title("🎯 Análise de Padrão de Vizinhos + Estratégia")
 
 # Controles
 col1, col2 = st.columns(2)
@@ -221,7 +252,6 @@ if uploaded_file:
             st.session_state.historico = dados['Número'].tolist()
             st.success(f"Histórico carregado! {len(dados)} registros.")
             
-            # VERIFICAÇÃO CORRIGIDA
             verificar_apostas_do_historico()
             st.success(f"Verificação concluída! {len(st.session_state.resultados)} apostas analisadas.")
             
@@ -232,23 +262,109 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Erro ao ler arquivo: {e}")
 
-# Exibição da estratégia
+# Análise de Vizinhos
+st.markdown("## 📊 Análise de Padrão de Vizinhos")
+
+if st.button("🔍 Analisar Tempo dos Vizinhos"):
+    if st.session_state.historico:
+        analisar_tempo_vizinhos()
+        st.success("Análise concluída!")
+    else:
+        st.warning("Carregue um histórico primeiro")
+
+if st.session_state.analise_vizinhos:
+    estatisticas = calcular_estatisticas_vizinhos()
+    
+    # Selecionar número para análise
+    numero_analise = st.selectbox(
+        "Selecione um número para análise detalhada:",
+        sorted(estatisticas.keys())
+    )
+    
+    if numero_analise:
+        st.markdown(f"### 📈 Análise do Número {numero_analise}")
+        
+        vizinhos_data = estatisticas[numero_analise]
+        
+        # Tabela de estatísticas
+        st.markdown("**Estatísticas dos Vizinhos:**")
+        dados_tabela = []
+        for vizinho, stats in vizinhos_data.items():
+            dados_tabela.append({
+                'Vizinho': vizinho,
+                'Média (rodadas)': f"{stats['media']:.1f}",
+                'Mínimo': stats['min'],
+                'Máximo': stats['max'],
+                'Ocorrências': stats['qtd'],
+                'Últimos 5': str(stats['ultimos_5'])
+            })
+        
+        if dados_tabela:
+            df_estatisticas = pd.DataFrame(dados_tabela)
+            st.dataframe(df_estatisticas, use_container_width=True)
+            
+            # Gráfico de média de tempo
+            st.markdown("**Média de Rodadas para Saída dos Vizinhos:**")
+            vizinhos_lista = list(vizinhos_data.keys())
+            medias = [vizinhos_data[v]['media'] for v in vizinhos_lista]
+            
+            fig = go.Figure(data=[
+                go.Bar(x=vizinhos_lista, y=medias, 
+                      text=[f"{m:.1f}" for m in medias],
+                      textposition='auto')
+            ])
+            fig.update_layout(
+                title=f"Média de Rodadas para Vizinhos do {numero_analise}",
+                xaxis_title="Vizinhos",
+                yaxis_title="Rodadas (Média)",
+                showlegend=False
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Heatmap de todos os números
+            st.markdown("### 🗺️ Heatmap de Todos os Números")
+            
+            heatmap_data = []
+            for numero in sorted(estatisticas.keys()):
+                for vizinho in estatisticas[numero]:
+                    heatmap_data.append({
+                        'Número': numero,
+                        'Vizinho': vizinho,
+                        'Média': estatisticas[numero][vizinho]['media']
+                    })
+            
+            if heatmap_data:
+                df_heatmap = pd.DataFrame(heatmap_data)
+                heatmap_pivot = df_heatmap.pivot(index='Número', columns='Vizinho', values='Média')
+                
+                fig_heatmap = go.Figure(data=go.Heatmap(
+                    z=heatmap_pivot.values,
+                    x=heatmap_pivot.columns,
+                    y=heatmap_pivot.index,
+                    colorscale='Viridis',
+                    hoverongaps=False,
+                    hovertemplate='Número: %{y}<br>Vizinho: %{x}<br>Média: %{z:.1f} rodadas<extra></extra>'
+                ))
+                fig_heatmap.update_layout(
+                    title="Heatmap - Média de Rodadas para Vizinhos",
+                    xaxis_title="Vizinhos",
+                    yaxis_title="Números Sortedos"
+                )
+                st.plotly_chart(fig_heatmap, use_container_width=True)
+
+# Estratégia Principal (mantida)
 if st.session_state.historico:
     ultimo_numero = st.session_state.historico[-1]
     
+    st.markdown("## 🎯 Estratégia Principal")
     st.subheader(f"Último número sorteado: {ultimo_numero}")
     
-    # ESTRATÉGIA - Mostra as apostas para o PRÓXIMO número baseado no ÚLTIMO número
-    st.markdown("### 🎯 Próximas Apostas (baseadas no último número)")
-    
-    # Calcula apostas para o último número (excluindo a última ocorrência)
     numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
         ultimo_numero, excluir_ultima_ocorrencia=True
     )
     fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
     custo_aposta = calcular_custo_aposta(fichas_por_numero)
     
-    # Mostra as últimas ocorrências ANTERIORES (excluindo a última)
     ocorrencias = obter_ultimas_ocorrencias_anteriores(ultimo_numero, excluir_ultima=True)
     
     if ocorrencias:
@@ -257,42 +373,29 @@ if st.session_state.historico:
             antes = f"{ocorrencia['antes']} → " if ocorrencia['antes'] is not None else ""
             depois = f" → {ocorrencia['depois']}" if ocorrencia['depois'] is not None else ""
             st.write(f"{i}. {antes}{ocorrencia['numero']}{depois}")
-    else:
-        st.write("Número não tem ocorrências anteriores suficientes para apostar")
     
     if numeros_aposta:
-        st.markdown("**Números para apostar:**")
-        st.write(f"**{numeros_aposta}**")
-        
-        st.markdown("**Vizinhos:**")
-        st.write(f"**{vizinhos}**")
-        
-        st.markdown("**Distribuição de Fichas:**")
-        for numero, fichas in sorted(fichas_por_numero.items()):
-            st.write(f"- Número {numero}: {fichas} ficha{'s' if fichas > 1 else ''}")
-        
-        st.markdown("**💰 Próxima Aposta:**")
-        st.write(f"- **Custo:** ${custo_aposta:,.2f}")
-        st.write(f"- **Números únicos:** {len(fichas_por_numero)}")
+        st.markdown("**Próximas Apostas:**")
+        st.write(f"**Números:** {numeros_aposta}")
+        st.write(f"**Vizinhos:** {vizinhos}")
+        st.write(f"**Custo:** ${custo_aposta:,.2f}")
+
+# Resultados
+st.markdown("## 🎲 Resultados das Apostas")
+if st.session_state.resultados:
+    resultados_validos = [r for r in st.session_state.resultados if r in ['1', 'X']]
+    resultados_display = " ".join(resultados_validos)
+    st.write(resultados_display)
+    st.write(f"Total de apostas: {len(resultados_validos)}")
     
-    # Resultados
-    st.subheader("🎲 Resultados das Apostas")
-    if st.session_state.resultados:
-        # Filtra apenas resultados 1/X (remove N e -)
-        resultados_validos = [r for r in st.session_state.resultados if r in ['1', 'X']]
-        resultados_display = " ".join(resultados_validos)
-        st.write(resultados_display)
-        st.write(f"Total de apostas: {len(resultados_validos)}")
+    if resultados_validos:
+        total_green = resultados_validos.count("1")
+        total_red = resultados_validos.count("X")
+        taxa = (total_green / len(resultados_validos)) * 100
+        st.write(f"**GREEN: {total_green}** | **RED: {total_red}** | **Taxa: {taxa:.1f}%**")
         
-        if resultados_validos:
-            total_green = resultados_validos.count("1")
-            total_red = resultados_validos.count("X")
-            taxa = (total_green / len(resultados_validos)) * 100
-            st.write(f"**GREEN: {total_green}** | **RED: {total_red}** | **Taxa: {taxa:.1f}%**")
-            
-            lucro_total = st.session_state.banca - 1000
-            st.write(f"**Banca Atual:** ${st.session_state.banca:,.2f}")
-            st.write(f"**Lucro Total:** ${lucro_total:+.2f}")
+        lucro_total = st.session_state.banca - 1000
+        st.write(f"**Banca:** ${st.session_state.banca:,.2f} | **Lucro:** ${lucro_total:+.2f}")
 
 # Botões de controle
 col1, col2 = st.columns(2)
@@ -303,9 +406,10 @@ with col1:
             st.success("Histórico re-verificado!")
             st.rerun()
 with col2:
-    if st.button("🔄 Resetar Banca"):
+    if st.button("🔄 Resetar Sistema"):
         st.session_state.banca = 1000
         st.session_state.historico_banca = [1000]
         st.session_state.resultados.clear()
-        st.success("Banca resetada!")
+        st.session_state.analise_vizinhos.clear()
+        st.success("Sistema resetado!")
         st.rerun()
