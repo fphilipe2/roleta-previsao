@@ -7,6 +7,12 @@ if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'resultados' not in st.session_state:
     st.session_state.resultados = deque(maxlen=1000)
+if 'banca' not in st.session_state:
+    st.session_state.banca = 1000  # Banca inicial
+if 'fichas_por_numero' not in st.session_state:
+    st.session_state.fichas_por_numero = {}
+if 'historico_banca' not in st.session_state:
+    st.session_state.historico_banca = []
 
 # Mapa de vizinhos da roleta europeia
 vizinhos_map = {
@@ -54,35 +60,61 @@ def calcular_apostas_para_numero(numero_alvo):
     """Calcula as apostas para um número baseado nas últimas 3 ocorrências"""
     ocorrencias = obter_ultimas_ocorrencias_com_vizinhos(numero_alvo)
     
-    # Coleta todos os números para apostar
-    numeros_aposta = set()
+    # Coleta todos os números para apostar (MANTÉM DUPLICATAS para cálculo de fichas)
+    numeros_aposta = []
     
     for ocorrencia in ocorrencias:
         # Adiciona o próprio número
-        numeros_aposta.add(ocorrencia['numero'])
+        numeros_aposta.append(ocorrencia['numero'])
         
         # Adiciona número antes (se existir)
         if ocorrencia['antes'] is not None:
-            numeros_aposta.add(ocorrencia['antes'])
+            numeros_aposta.append(ocorrencia['antes'])
         
         # Adiciona número depois (se existir)
         if ocorrencia['depois'] is not None:
-            numeros_aposta.add(ocorrencia['depois'])
+            numeros_aposta.append(ocorrencia['depois'])
     
-    # Ordena os números
-    numeros_aposta = sorted(list(numeros_aposta))
+    # Calcula vizinhos (sem duplicatas para a lista de vizinhos)
+    numeros_unicos = list(set(numeros_aposta))
+    vizinhos = obter_vizinhos_roleta(numeros_unicos)
     
-    # Calcula vizinhos
-    vizinhos = obter_vizinhos_roleta(numeros_aposta)
+    # Apostas finais (com duplicatas para cálculo de fichas)
+    apostas_com_duplicatas = numeros_aposta + vizinhos
     
-    # Apostas finais (números + vizinhos)
-    apostas_finais = sorted(list(set(numeros_aposta) | set(vizinhos)))
+    return numeros_aposta, vizinhos, apostas_com_duplicatas
+
+def calcular_fichas_aposta(apostas_com_duplicatas):
+    """Calcula quantas fichas serão colocadas em cada número"""
+    fichas_por_numero = {}
     
-    return numeros_aposta, vizinhos, apostas_finais
+    for numero in apostas_com_duplicatas:
+        if numero in fichas_por_numero:
+            fichas_por_numero[numero] += 1
+        else:
+            fichas_por_numero[numero] = 1
+    
+    return fichas_por_numero
+
+def calcular_custo_aposta(fichas_por_numero):
+    """Calcula o custo total da aposta"""
+    return sum(fichas_por_numero.values())
+
+def calcular_premiacao(numero_sorteado, fichas_por_numero, custo_aposta):
+    """Calcula a premiação se o número sorteado estiver nas apostas"""
+    if numero_sorteado in fichas_por_numero:
+        fichas_no_numero = fichas_por_numero[numero_sorteado]
+        premio = fichas_no_numero * 36
+        lucro = premio - custo_aposta
+        return premio, lucro
+    else:
+        return 0, -custo_aposta
 
 def verificar_apostas_do_historico():
     """Verifica todas as apostas do histórico carregado"""
     st.session_state.resultados.clear()  # Limpa resultados anteriores
+    st.session_state.historico_banca.clear()
+    st.session_state.banca = 1000  # Reseta banca
     
     if len(st.session_state.historico) <= 1:
         return  # Não há apostas para verificar
@@ -93,10 +125,21 @@ def verificar_apostas_do_historico():
         numero_anterior = st.session_state.historico[i - 1]
         
         # Calcula apostas para o número anterior
-        numeros_aposta, vizinhos, apostas_anteriores = calcular_apostas_para_numero(numero_anterior)
+        numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(numero_anterior)
         
-        # Verifica resultado
-        if numero_atual in apostas_anteriores:
+        # Calcula fichas por número
+        fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
+        custo_aposta = calcular_custo_aposta(fichas_por_numero)
+        
+        # Verifica resultado e calcula premiação
+        premio, lucro = calcular_premiacao(numero_atual, fichas_por_numero, custo_aposta)
+        
+        # Atualiza banca
+        st.session_state.banca += lucro
+        st.session_state.historico_banca.append(st.session_state.banca)
+        
+        # Registra resultado
+        if numero_atual in apostas_com_duplicatas:
             st.session_state.resultados.append("1")  # GREEN
         else:
             st.session_state.resultados.append("X")  # RED
@@ -107,10 +150,21 @@ def registrar_numero(numero):
         ultimo_sorteado_anterior = st.session_state.historico[-1]
         
         # Calcula apostas para o número anterior
-        numeros_aposta, vizinhos, apostas_anteriores = calcular_apostas_para_numero(ultimo_sorteado_anterior)
+        numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(ultimo_sorteado_anterior)
         
-        # Verifica se o NOVO número está nas apostas da rodada anterior
-        if numero in apostas_anteriores:
+        # Calcula fichas por número
+        fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
+        custo_aposta = calcular_custo_aposta(fichas_por_numero)
+        
+        # Verifica resultado e calcula premiação
+        premio, lucro = calcular_premiacao(numero, fichas_por_numero, custo_aposta)
+        
+        # Atualiza banca
+        st.session_state.banca += lucro
+        st.session_state.historico_banca.append(st.session_state.banca)
+        
+        # Registra resultado
+        if numero in apostas_com_duplicatas:
             st.session_state.resultados.append("1")  # GREEN
         else:
             st.session_state.resultados.append("X")  # RED
@@ -119,7 +173,7 @@ def registrar_numero(numero):
     st.session_state.historico.append(numero)
 
 # Interface
-st.title("🎯 Nova Estratégia - Padrão de Ocorrências")
+st.title("🎯 Estratégia com Simulação de Banca")
 
 # Controles
 col1, col2 = st.columns(2)
@@ -157,7 +211,11 @@ if st.session_state.historico:
     st.markdown("### 🎯 Estratégia: Padrão de Ocorrências")
     
     # Calcula apostas para o último número
-    numeros_aposta, vizinhos, apostas_finais = calcular_apostas_para_numero(ultimo_numero)
+    numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(ultimo_numero)
+    
+    # Calcula fichas por número
+    fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
+    custo_aposta = calcular_custo_aposta(fichas_por_numero)
     
     # Mostra as últimas ocorrências
     ocorrencias = obter_ultimas_ocorrencias_com_vizinhos(ultimo_numero)
@@ -171,19 +229,25 @@ if st.session_state.historico:
     else:
         st.write("Número ainda não tem ocorrências anteriores")
     
-    st.markdown("**Números para apostar:**")
+    st.markdown("**Números para apostar (com repetições):**")
     st.write(f"**{numeros_aposta}**")
     
     st.markdown("**Vizinhos (1 de cada lado):**")
     st.write(f"**{vizinhos}**")
     
-    st.markdown("**Apostas Finais (Números + Vizinhos):**")
-    st.write(f"**{apostas_finais}**")
+    st.markdown("**Distribuição de Fichas:**")
+    for numero, fichas in sorted(fichas_por_numero.items()):
+        st.write(f"- Número {numero}: {fichas} ficha{'s' if fichas > 1 else ''}")
+    
+    st.markdown("**💰 Simulação de Banca:**")
+    st.write(f"- **Banca Atual:** ${st.session_state.banca:,.2f}")
+    st.write(f"- **Custo da Aposta:** ${custo_aposta:,.2f}")
+    st.write(f"- **Total de Fichas:** {custo_aposta}")
     
     # Estatísticas
     st.markdown("**📊 Estatísticas:**")
-    st.write(f"- Total de números apostados: {len(apostas_finais)}")
-    st.write(f"- Cobertura da roleta: {(len(apostas_finais)/37*100):.1f}%")
+    st.write(f"- Números únicos apostados: {len(fichas_por_numero)}")
+    st.write(f"- Cobertura da roleta: {(len(fichas_por_numero)/37*100):.1f}%")
     
     # Histórico recente
     st.subheader("📈 Últimos números sorteados")
@@ -203,11 +267,11 @@ if st.session_state.historico:
             taxa_acerto = (total_green / len(st.session_state.resultados)) * 100
             st.write(f"**GREEN: {total_green}** | **RED: {total_red}** | **Taxa de acerto: {taxa_acerto:.1f}%**")
             
-            # Mostrar também os últimos 20 para referência rápida
-            if len(st.session_state.resultados) > 20:
-                st.write(f"**Últimos 20 resultados:** {" ".join(list(st.session_state.resultados)[-20:])}")
-    else:
-        st.write("Aguardando próximos resultados...")
+            # Evolução da banca
+            if st.session_state.historico_banca:
+                st.write(f"**Evolução da Banca:** ${st.session_state.historico_banca[0]:.2f} → ${st.session_state.banca:.2f}")
+                lucro_total = st.session_state.banca - 1000
+                st.write(f"**Lucro/Prejuízo Total:** ${lucro_total:+.2f}")
 
 # Botão para forçar re-verificação do histórico
 if st.button("🔄 Re-verificar Histórico"):
@@ -217,6 +281,12 @@ if st.button("🔄 Re-verificar Histórico"):
     else:
         st.warning("Nenhum histórico para verificar")
 
+# Botão para resetar banca
+if st.button("🔄 Resetar Banca"):
+    st.session_state.banca = 1000
+    st.session_state.historico_banca = []
+    st.success("Banca resetada para $1.000,00")
+
 # Exportar histórico
 if st.button("📥 Exportar Histórico"):
     if st.session_state.historico:
@@ -224,15 +294,19 @@ if st.button("📥 Exportar Histórico"):
         if len(resultados_export) < len(st.session_state.historico) - 1:
             resultados_export = [''] * (len(st.session_state.historico) - 1 - len(resultados_export)) + resultados_export
         
+        # Adiciona coluna de banca
+        banca_export = [1000] + st.session_state.historico_banca
+        
         df = pd.DataFrame({
             'Número': st.session_state.historico,
-            'Resultado_Aposta': [''] + resultados_export  # Primeiro número sem resultado
+            'Resultado_Aposta': [''] + resultados_export,
+            'Banca': banca_export
         })
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="Baixar CSV",
             data=csv,
-            file_name='historico_roleta_padrao_ocorrencias.csv',
+            file_name='historico_roleta_com_banca.csv',
             mime='text/csv'
         )
     else:
