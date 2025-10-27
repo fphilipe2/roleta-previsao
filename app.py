@@ -33,14 +33,18 @@ def obter_vizinhos_roleta(numeros):
             todos_vizinhos.update(vizinhos)
     return sorted(list(todos_vizinhos))
 
-def obter_ultimas_ocorrencias_com_vizinhos(numero_alvo):
-    """Obtém as últimas 3 ocorrências do número com seus números antes/depois"""
+def obter_ultimas_ocorrencias_anteriores(numero_alvo, excluir_ultima=True):
+    """Obtém as últimas 3 ocorrências ANTERIORES do número (excluindo a última ocorrência)"""
     ocorrencias_com_vizinhos = []
     
     # Encontra todas as posições do número no histórico
     posicoes = [i for i, num in enumerate(st.session_state.historico) if num == numero_alvo]
     
-    # Pega as últimas 3 ocorrências
+    # Se deve excluir a última ocorrência (a que acabou de sair)
+    if excluir_ultima and posicoes:
+        posicoes = posicoes[:-1]  # Remove a última ocorrência
+    
+    # Pega as últimas 3 ocorrências anteriores
     ultimas_posicoes = posicoes[-3:] if len(posicoes) >= 3 else posicoes
     
     for pos in ultimas_posicoes:
@@ -54,15 +58,16 @@ def obter_ultimas_ocorrencias_com_vizinhos(numero_alvo):
     
     return ocorrencias_com_vizinhos
 
-def calcular_apostas_para_numero(numero_alvo):
-    """Calcula as apostas para um número baseado nas últimas 3 ocorrências"""
-    ocorrencias = obter_ultimas_ocorrencias_com_vizinhos(numero_alvo)
+def calcular_apostas_para_numero(numero_alvo, excluir_ultima_ocorrencia=True):
+    """Calcula as apostas para um número baseado nas últimas 3 ocorrências ANTERIORES"""
+    ocorrencias = obter_ultimas_ocorrencias_anteriores(numero_alvo, excluir_ultima_ocorrencia)
     
     # Coleta todos os números para apostar
     numeros_aposta = []
     
-    # O NÚMERO ALVO aparece APENAS UMA VEZ
-    numeros_aposta.append(numero_alvo)
+    # O NÚMERO ALVO aparece APENAS UMA VEZ (se tiver ocorrências anteriores)
+    if ocorrencias:
+        numeros_aposta.append(numero_alvo)
     
     for ocorrencia in ocorrencias:
         # Adiciona número antes (se existir) - PODE REPETIR
@@ -109,7 +114,7 @@ def calcular_premiacao(numero_sorteado, fichas_por_numero, custo_aposta):
         return 0, -custo_aposta, False  # RED
 
 def verificar_apostas_do_historico():
-    """Verifica TODAS as apostas do histórico carregado - MESMA LÓGICA DA INSERÇÃO MANUAL"""
+    """Verifica TODAS as apostas do histórico carregado"""
     st.session_state.resultados.clear()
     st.session_state.historico_banca = [1000]  # Banca inicial
     st.session_state.banca = 1000
@@ -117,44 +122,72 @@ def verificar_apostas_do_historico():
     if len(st.session_state.historico) <= 1:
         return
     
-    # MESMA LÓGICA DA INSERÇÃO MANUAL: para cada novo número, verifica aposta do anterior
+    # Para cada número a partir da posição 1, verifica as apostas baseadas no PRÓPRIO número
     for i in range(1, len(st.session_state.historico)):
         numero_atual = st.session_state.historico[i]
-        numero_anterior = st.session_state.historico[i-1]
+        numero_que_gerou_aposta = st.session_state.historico[i]  # O PRÓPRIO número atual
         
-        # Calcula apostas para o número ANTERIOR (mesma lógica do registrar_numero)
-        numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(numero_anterior)
+        # Calcula apostas para o PRÓPRIO número (excluindo a última ocorrência)
+        numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
+            numero_que_gerou_aposta, excluir_ultima_ocorrencia=True
+        )
+        
+        # Se não há ocorrências anteriores suficientes, não há aposta
+        if not numeros_aposta:
+            st.session_state.resultados.append("N")  # NO BET
+            st.session_state.historico_banca.append(st.session_state.banca)
+            continue
         
         # Calcula fichas e custo
         fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
         custo_aposta = calcular_custo_aposta(fichas_por_numero)
         
-        # Verifica resultado
-        premio, lucro, is_green = calcular_premiacao(numero_atual, fichas_por_numero, custo_aposta)
-        
-        # Atualiza banca
-        st.session_state.banca += lucro
-        st.session_state.historico_banca.append(st.session_state.banca)
-        
-        # Registra resultado
-        if is_green:
-            st.session_state.resultados.append("1")
+        # Verifica resultado (o próximo número será verificado na próxima iteração)
+        # Para a última posição, não há próximo número para verificar
+        if i < len(st.session_state.historico) - 1:
+            proximo_numero = st.session_state.historico[i + 1]
+            premio, lucro, is_green = calcular_premiacao(proximo_numero, fichas_por_numero, custo_aposta)
+            
+            # Atualiza banca
+            st.session_state.banca += lucro
+            st.session_state.historico_banca.append(st.session_state.banca)
+            
+            # Registra resultado
+            if is_green:
+                st.session_state.resultados.append("1")
+            else:
+                st.session_state.resultados.append("X")
         else:
-            st.session_state.resultados.append("X")
+            # Último número do histórico - não tem próximo para verificar
+            st.session_state.resultados.append("-")
+            st.session_state.historico_banca.append(st.session_state.banca)
 
 def registrar_numero(numero):
-    """LÓGICA ORIGINAL DA INSERÇÃO MANUAL (que estava funcionando)"""
-    if len(st.session_state.historico) >= 1:
-        ultimo_sorteado_anterior = st.session_state.historico[-1]
+    """Registra um novo número e verifica a aposta baseada no PRÓPRIO número"""
+    # Primeiro adiciona o número ao histórico
+    st.session_state.historico.append(numero)
+    
+    # Para verificar a aposta, precisamos de pelo menos 2 números no histórico
+    if len(st.session_state.historico) >= 2:
+        # O número que vai gerar a aposta é o PENÚLTIMO (excluindo o que acabou de ser adicionado)
+        numero_que_gerou_aposta = st.session_state.historico[-2]
         
-        # Calcula apostas para o número ANTERIOR
-        numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(ultimo_sorteado_anterior)
+        # Calcula apostas para o número ANTERIOR (excluindo a última ocorrência)
+        numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
+            numero_que_gerou_aposta, excluir_ultima_ocorrencia=True
+        )
+        
+        # Se não há ocorrências anteriores suficientes, não há aposta
+        if not numeros_aposta:
+            st.session_state.resultados.append("N")  # NO BET
+            st.session_state.historico_banca.append(st.session_state.banca)
+            return
         
         # Calcula fichas e custo
         fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
         custo_aposta = calcular_custo_aposta(fichas_por_numero)
         
-        # Verifica resultado
+        # Verifica resultado com o número ATUAL (que acabou de ser adicionado)
         premio, lucro, is_green = calcular_premiacao(numero, fichas_por_numero, custo_aposta)
         
         # Atualiza banca
@@ -166,12 +199,9 @@ def registrar_numero(numero):
             st.session_state.resultados.append("1")
         else:
             st.session_state.resultados.append("X")
-    
-    # Adiciona o novo número ao histórico
-    st.session_state.historico.append(numero)
 
 # Interface
-st.title("🎯 Estratégia com Simulação de Banca")
+st.title("🎯 Estratégia Corrigida - Ocorrências Anteriores")
 
 # Controles
 col1, col2 = st.columns(2)
@@ -188,14 +218,10 @@ if uploaded_file:
     try:
         dados = pd.read_csv(uploaded_file)
         if 'Número' in dados.columns:
-            # Salva o histórico atual temporariamente
-            historico_anterior = st.session_state.historico.copy() if st.session_state.historico else []
-            
-            # Carrega novo histórico
             st.session_state.historico = dados['Número'].tolist()
             st.success(f"Histórico carregado! {len(dados)} registros.")
             
-            # VERIFICAÇÃO DO HISTÓRICO COM MESMA LÓGICA DA INSERÇÃO MANUAL
+            # VERIFICAÇÃO CORRIGIDA
             verificar_apostas_do_historico()
             st.success(f"Verificação concluída! {len(st.session_state.resultados)} apostas analisadas.")
             
@@ -212,52 +238,60 @@ if st.session_state.historico:
     
     st.subheader(f"Último número sorteado: {ultimo_numero}")
     
-    # ESTRATÉGIA
-    st.markdown("### 🎯 Estratégia: Padrão de Ocorrências")
+    # ESTRATÉGIA - Mostra as apostas para o PRÓXIMO número baseado no ÚLTIMO número
+    st.markdown("### 🎯 Próximas Apostas (baseadas no último número)")
     
-    # Calcula apostas para o último número
-    numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(ultimo_numero)
+    # Calcula apostas para o último número (excluindo a última ocorrência)
+    numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
+        ultimo_numero, excluir_ultima_ocorrencia=True
+    )
     fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
     custo_aposta = calcular_custo_aposta(fichas_por_numero)
     
-    # Mostra as últimas ocorrências
-    ocorrencias = obter_ultimas_ocorrencias_com_vizinhos(ultimo_numero)
+    # Mostra as últimas ocorrências ANTERIORES (excluindo a última)
+    ocorrencias = obter_ultimas_ocorrencias_anteriores(ultimo_numero, excluir_ultima=True)
     
     if ocorrencias:
-        st.markdown("**Últimas ocorrências:**")
+        st.markdown("**Últimas ocorrências ANTERIORES:**")
         for i, ocorrencia in enumerate(ocorrencias, 1):
             antes = f"{ocorrencia['antes']} → " if ocorrencia['antes'] is not None else ""
             depois = f" → {ocorrencia['depois']}" if ocorrencia['depois'] is not None else ""
             st.write(f"{i}. {antes}{ocorrencia['numero']}{depois}")
+    else:
+        st.write("Número não tem ocorrências anteriores suficientes para apostar")
     
-    st.markdown("**Números para apostar:**")
-    st.write(f"**{numeros_aposta}**")
-    
-    st.markdown("**Vizinhos:**")
-    st.write(f"**{vizinhos}**")
-    
-    st.markdown("**Distribuição de Fichas:**")
-    for numero, fichas in sorted(fichas_por_numero.items()):
-        st.write(f"- Número {numero}: {fichas} ficha{'s' if fichas > 1 else ''}")
-    
-    st.markdown("**💰 Simulação de Banca:**")
-    st.write(f"- **Banca Atual:** ${st.session_state.banca:,.2f}")
-    st.write(f"- **Próxima Aposta:** ${custo_aposta:,.2f}")
+    if numeros_aposta:
+        st.markdown("**Números para apostar:**")
+        st.write(f"**{numeros_aposta}**")
+        
+        st.markdown("**Vizinhos:**")
+        st.write(f"**{vizinhos}**")
+        
+        st.markdown("**Distribuição de Fichas:**")
+        for numero, fichas in sorted(fichas_por_numero.items()):
+            st.write(f"- Número {numero}: {fichas} ficha{'s' if fichas > 1 else ''}")
+        
+        st.markdown("**💰 Próxima Aposta:**")
+        st.write(f"- **Custo:** ${custo_aposta:,.2f}")
+        st.write(f"- **Números únicos:** {len(fichas_por_numero)}")
     
     # Resultados
     st.subheader("🎲 Resultados das Apostas")
     if st.session_state.resultados:
-        resultados_display = " ".join(list(st.session_state.resultados))
+        # Filtra apenas resultados 1/X (remove N e -)
+        resultados_validos = [r for r in st.session_state.resultados if r in ['1', 'X']]
+        resultados_display = " ".join(resultados_validos)
         st.write(resultados_display)
-        st.write(f"Total de apostas: {len(st.session_state.resultados)}")
+        st.write(f"Total de apostas: {len(resultados_validos)}")
         
-        total_green = list(st.session_state.resultados).count("1")
-        total_red = list(st.session_state.resultados).count("X")
-        if st.session_state.resultados:
-            taxa = (total_green / len(st.session_state.resultados)) * 100
+        if resultados_validos:
+            total_green = resultados_validos.count("1")
+            total_red = resultados_validos.count("X")
+            taxa = (total_green / len(resultados_validos)) * 100
             st.write(f"**GREEN: {total_green}** | **RED: {total_red}** | **Taxa: {taxa:.1f}%**")
             
             lucro_total = st.session_state.banca - 1000
+            st.write(f"**Banca Atual:** ${st.session_state.banca:,.2f}")
             st.write(f"**Lucro Total:** ${lucro_total:+.2f}")
 
 # Botões de controle
