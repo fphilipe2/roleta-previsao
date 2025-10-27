@@ -21,7 +21,7 @@ if 'multiplicador_aposta' not in st.session_state:
 if 'historico_multiplicadores' not in st.session_state:
     st.session_state.historico_multiplicadores = []
 if 'ultimo_green_info' not in st.session_state:
-    st.session_state.ultimo_green_info = None  # {numero_origem, posicao}
+    st.session_state.ultimo_green_info = None
 
 # Mapa de vizinhos
 vizinhos_map = {
@@ -195,8 +195,8 @@ def processar_numero_com_martingale_controlado(numero):
         # Incrementa contador de REDs consecutivos
         st.session_state.reds_consecutivos += 1
         
-        # VERIFICA SE PRECISA DOBRAR AS FICHAS E TROCAR DE NÚMERO (a cada 3 REDs consecutivos)
-        if st.session_state.reds_consecutivos % 3 == 0:
+        # VERIFICA SE PRECISA DOBRAR AS FICHAS E TROCAR DE NÚMERO (EXATAMENTE NO 3º RED)
+        if st.session_state.reds_consecutivos == 3:
             # DOBRA o multiplicador
             novo_multiplicador = st.session_state.multiplicador_aposta * 2
             st.session_state.multiplicador_aposta = novo_multiplicador
@@ -227,6 +227,7 @@ def processar_numero_com_martingale_controlado(numero):
             if nova_aposta:
                 st.session_state.aposta_atual = nova_aposta
                 st.session_state.ultimo_numero_apostado = novo_numero_origem
+                st.session_state.reds_consecutivos = 0  # RESETA contador de REDs após troca
                 st.warning(f"🔥 TROCA AUTOMÁTICA! {st.session_state.reds_consecutivos} REDs consecutivos")
                 st.warning(f"🔄 Saindo do número {numero_origem_atual} para o número {novo_numero_origem}")
                 st.warning(f"💰 Multiplicador: {novo_multiplicador}x | Nova aposta: ${nova_aposta['custo_aposta']:.2f}")
@@ -346,7 +347,7 @@ if st.session_state.aposta_atual:
             st.write(f"- Número {num}: {fichas} fichas ({fichas_base:.0f} base × {st.session_state.multiplicador_aposta}x)")
         
         # Alerta visual para próximo aumento
-        reds_para_proximo_aumento = 3 - (st.session_state.reds_consecutivos % 3)
+        reds_para_proximo_aumento = 3 - st.session_state.reds_consecutivos
         if st.session_state.reds_consecutivos > 0:
             if reds_para_proximo_aumento > 0:
                 st.warning(f"⚠️ **{reds_para_proximo_aumento} RED(s) para troca automática + multiplicador**")
@@ -356,5 +357,72 @@ if st.session_state.aposta_atual:
 else:
     st.info("Aguardando primeiro número para iniciar ciclo...")
 
-# Resto do código permanece igual...
-# [O restante do código de histórico, resultados e estatísticas permanece igual]
+# Histórico de Multiplicadores
+if st.session_state.historico_multiplicadores:
+    st.markdown("## 📈 Histórico de Troca e Multiplicadores")
+    
+    ultimos_multiplicadores = st.session_state.historico_multiplicadores[-10:]  # Últimos 10
+    
+    for hist in ultimos_multiplicadores:
+        if hist['resultado'] == 'DOUBLING':
+            st.write(f"🔄 **Troca Automática** - Ciclo {hist['ciclo']}:")
+            
+            numero_anterior = hist.get('numero_anterior', 'N/A')
+            novo_numero = hist.get('novo_numero', 'N/A')
+            reds_consecutivos = hist.get('reds_consecutivos', 0)
+            posicao_anterior = hist.get('posicao_anterior', 'N/A')
+            
+            st.write(f"   Número {numero_anterior} → {novo_numero}")
+            st.write(f"   Posição anterior: {posicao_anterior} | REDs: {reds_consecutivos}")
+            st.write(f"   Multiplicador: {hist['multiplicador']}x")
+            
+        else:  # GREEN
+            st.write(f"🎉 **GREEN** - Ciclo {hist['ciclo']}:")
+            
+            numero_origem = hist.get('numero_origem', 'N/A')
+            numero_green = hist.get('numero_green', 'N/A')
+            lucro = hist.get('lucro', 0)
+            posicao_historico = hist.get('posicao_historico', 'N/A')
+            
+            st.write(f"   Número {numero_origem} | Multiplicador: {hist['multiplicador']}x")
+            st.write(f"   Número sorteado: {numero_green} | Posição: {posicao_historico}")
+            st.write(f"   Lucro: ${lucro:+.2f}")
+        
+        st.write("---")
+
+# 🎲 RESULTADOS
+st.markdown("## 🎲 Resultados das Apostas")
+
+if st.session_state.resultados:
+    # Limite de 1000 resultados em uma linha
+    resultados_para_mostrar = st.session_state.resultados[-1000:]
+    resultados_string = " ".join(resultados_para_mostrar)
+    
+    st.text_area("", resultados_string, height=100, key="resultados_area")
+    
+    # Estatísticas
+    resultados_validos = [r for r in resultados_para_mostrar if r in ['1', 'X']]
+    total_green = resultados_validos.count("1")
+    total_red = resultados_validos.count("X")
+    total_apostas = len(resultados_validos)
+    
+    if total_apostas > 0:
+        taxa_acerto = (total_green / total_apostas) * 100
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("GREEN", total_green)
+        with col2:
+            st.metric("RED", total_red)
+        with col3:
+            st.metric("Taxa", f"{taxa_acerto:.1f}%")
+        with col4:
+            st.metric("Total", total_apostas)
+    
+    st.metric("💰 Banca", f"${st.session_state.banca:.2f}")
+
+# Histórico recente
+if st.session_state.historico:
+    st.markdown("### 📊 Últimos números sorteados")
+    ultimos_10 = st.session_state.historico[-10:] if len(st.session_state.historico) >= 10 else st.session_state.historico
+    st.write(" → ".join(map(str, ultimos_10)))
