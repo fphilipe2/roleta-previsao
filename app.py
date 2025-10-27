@@ -60,18 +60,18 @@ def calcular_apostas_para_numero(numero_alvo):
     """Calcula as apostas para um número baseado nas últimas 3 ocorrências"""
     ocorrencias = obter_ultimas_ocorrencias_com_vizinhos(numero_alvo)
     
-    # Coleta todos os números para apostar (MANTÉM DUPLICATAS para cálculo de fichas)
+    # Coleta todos os números para apostar
     numeros_aposta = []
     
+    # O NÚMERO ALVO aparece APENAS UMA VEZ (independente de quantas vezes saiu)
+    numeros_aposta.append(numero_alvo)
+    
     for ocorrencia in ocorrencias:
-        # Adiciona o próprio número
-        numeros_aposta.append(ocorrencia['numero'])
-        
-        # Adiciona número antes (se existir)
+        # Adiciona número antes (se existir) - PODE REPETIR
         if ocorrencia['antes'] is not None:
             numeros_aposta.append(ocorrencia['antes'])
         
-        # Adiciona número depois (se existir)
+        # Adiciona número depois (se existir) - PODE REPETIR
         if ocorrencia['depois'] is not None:
             numeros_aposta.append(ocorrencia['depois'])
     
@@ -80,6 +80,7 @@ def calcular_apostas_para_numero(numero_alvo):
     vizinhos = obter_vizinhos_roleta(numeros_unicos)
     
     # Apostas finais (com duplicatas para cálculo de fichas)
+    # O número alvo NÃO REPETE nos vizinhos
     apostas_com_duplicatas = numeros_aposta + vizinhos
     
     return numeros_aposta, vizinhos, apostas_com_duplicatas
@@ -311,3 +312,4 @@ if st.button("📥 Exportar Histórico"):
         )
     else:
         st.warning("Nenhum dado para exportar")
+
