@@ -4,24 +4,12 @@ import pandas as pd
 # Configuração inicial
 if 'historico' not in st.session_state:
     st.session_state.historico = []
-if 'resultados' not in st.session_state:
-    st.session_state.resultados = []
-if 'banca' not in st.session_state:
-    st.session_state.banca = 1000
-if 'aposta_atual' not in st.session_state:
-    st.session_state.aposta_atual = None
-if 'ciclo_atual' not in st.session_state:
-    st.session_state.ciclo_atual = 1
+if 'numero_origem' not in st.session_state:
+    st.session_state.numero_origem = None
 if 'reds_consecutivos' not in st.session_state:
     st.session_state.reds_consecutivos = 0
-if 'ultimo_numero_apostado' not in st.session_state:
-    st.session_state.ultimo_numero_apostado = None
-if 'multiplicador_aposta' not in st.session_state:
-    st.session_state.multiplicador_aposta = 1
-if 'historico_multiplicadores' not in st.session_state:
-    st.session_state.historico_multiplicadores = []
-if 'ultimo_green_info' not in st.session_state:
-    st.session_state.ultimo_green_info = None
+if 'ciclo_atual' not in st.session_state:
+    st.session_state.ciclo_atual = 1
 
 # Mapa de vizinhos
 vizinhos_map = {
@@ -36,34 +24,31 @@ vizinhos_map = {
 }
 
 def obter_vizinhos(numeros):
-    """Versão otimizada para obter vizinhos"""
+    """Obtém vizinhos dos números"""
     vizinhos = set()
     for n in numeros:
         if n in vizinhos_map:
             vizinhos.update(vizinhos_map[n])
     return sorted(vizinhos)
 
-def criar_aposta_com_multiplicador(numero, multiplicador=1):
-    """Cria apostas com multiplicador de fichas"""
+def criar_aposta(numero_origem):
+    """Cria aposta baseada no número origem"""
     if not st.session_state.historico:
         return None
     
-    # Encontra as últimas 3 ocorrências anteriores
+    # Encontra as últimas 3 ocorrências do número origem
     ocorrencias = []
-    count = 0
-    for i in range(len(st.session_state.historico)-2, -1, -1):
-        if st.session_state.historico[i] == numero:
+    for i in range(len(st.session_state.historico)-1, -1, -1):
+        if st.session_state.historico[i] == numero_origem:
             ocorrencias.append(i)
-            count += 1
-            if count == 3:
+            if len(ocorrencias) == 3:
                 break
     
     if not ocorrencias:
         return None
     
-    # Coleta números rapidamente
-    numeros_aposta = [numero]  # Número alvo
-    
+    # Coleta números anteriores e posteriores
+    numeros_aposta = [numero_origem]
     for pos in ocorrencias:
         if pos > 0:
             numeros_aposta.append(st.session_state.historico[pos-1])
@@ -73,194 +58,109 @@ def criar_aposta_com_multiplicador(numero, multiplicador=1):
     # Calcula vizinhos
     vizinhos = obter_vizinhos(set(numeros_aposta))
     
-    # Calcula fichas BASE (sem multiplicador)
-    todas_apostas = numeros_aposta + vizinhos
-    fichas_base = {}
-    for n in todas_apostas:
-        fichas_base[n] = fichas_base.get(n, 0) + 1
-    
-    custo_base = sum(fichas_base.values())
-    
-    # APLICA MULTIPLICADOR nas fichas
-    fichas_com_multiplicador = {}
-    for numero_ficha, quantidade_base in fichas_base.items():
-        fichas_com_multiplicador[numero_ficha] = quantidade_base * multiplicador
-    
-    custo_com_multiplicador = sum(fichas_com_multiplicador.values())
+    # Números finais da aposta
+    apostas_finais = list(set(numeros_aposta + vizinhos))
     
     return {
-        'numero_origem': numero,
-        'numeros_aposta': numeros_aposta,
-        'vizinhos': vizinhos,
-        'fichas_base': fichas_base,
-        'fichas_por_numero': fichas_com_multiplicador,
-        'custo_base': custo_base,
-        'custo_aposta': custo_com_multiplicador,
-        'apostas_finais': list(set(todas_apostas)),
-        'rodadas_apostadas': 0,
-        'custo_acumulado': 0,
-        'multiplicador_atual': multiplicador
+        'numero_origem': numero_origem,
+        'apostas_finais': apostas_finais,
+        'numeros_base': numeros_aposta,
+        'vizinhos': vizinhos
     }
 
-def encontrar_numero_seguinte_para_troca():
-    """Encontra o número IMEDIATAMENTE seguinte ao último GREEN para troca"""
-    if not st.session_state.ultimo_green_info:
+def encontrar_numero_seguinte(numero_origem):
+    """Encontra o número IMEDIATAMENTE seguinte ao número origem no histórico"""
+    if not st.session_state.historico:
         return None
     
-    numero_origem = st.session_state.ultimo_green_info['numero_origem']
-    posicao_green = st.session_state.ultimo_green_info['posicao']
+    # Encontra a ÚLTIMA ocorrência do número origem
+    ultima_posicao = None
+    for i in range(len(st.session_state.historico)-1, -1, -1):
+        if st.session_state.historico[i] == numero_origem:
+            ultima_posicao = i
+            break
     
-    # Verifica se há um número seguinte na sequência
-    if posicao_green < len(st.session_state.historico) - 1:
-        numero_seguinte = st.session_state.historico[posicao_green + 1]
-        
-        # DEBUG: Mostra informações para verificação
-        st.info(f"🔍 DEBUG: GREEN em posição {posicao_green} (número {numero_origem})")
-        st.info(f"🔍 DEBUG: Próximo número na posição {posicao_green + 1} é: {numero_seguinte}")
-        
-        return numero_seguinte
+    # Verifica se há um número seguinte
+    if ultima_posicao is not None and ultima_posicao < len(st.session_state.historico) - 1:
+        return st.session_state.historico[ultima_posicao + 1]
     
     return None
 
-def processar_numero_com_martingale_controlado(numero):
-    """Processa número com Martingale controlado (dobrar a cada 3 REDs)"""
+def processar_numero(numero):
+    """Processa o número sorteado conforme a estratégia"""
     
-    # Se não há aposta atual, cria uma baseada no número atual
-    if st.session_state.aposta_atual is None:
-        aposta = criar_aposta_com_multiplicador(numero, st.session_state.multiplicador_aposta)
-        if aposta:
-            st.session_state.aposta_atual = aposta
-            st.session_state.ultimo_numero_apostado = numero
-            st.session_state.reds_consecutivos = 0
-        else:
-            st.session_state.resultados.append("N")
-        return
+    # Se não há número origem, usa o primeiro número como origem
+    if st.session_state.numero_origem is None:
+        st.session_state.numero_origem = numero
+        st.session_state.reds_consecutivos = 0
+        return "PRIMEIRO_NUMERO"
     
-    aposta = st.session_state.aposta_atual
-    numero_origem_atual = aposta['numero_origem']
+    aposta = criar_aposta(st.session_state.numero_origem)
+    if not aposta:
+        return "SEM_APOSTA"
     
     # Verifica se é GREEN
     if numero in aposta['apostas_finais']:
-        fichas = aposta['fichas_por_numero'].get(numero, 0)
-        premio = fichas * 36
-        lucro = premio - aposta['custo_aposta']
-        
-        st.session_state.banca += lucro
-        st.session_state.resultados.append("1")
-        
-        # Atualiza informações do último GREEN
-        # Encontra a posição MAIS RECENTE do número de origem no histórico
-        posicao_mais_recente = None
-        for i in range(len(st.session_state.historico)-1, -1, -1):
-            if st.session_state.historico[i] == numero_origem_atual:
-                posicao_mais_recente = i
-                break
-        
-        if posicao_mais_recente is not None:
-            st.session_state.ultimo_green_info = {
-                'numero_origem': numero_origem_atual,
-                'posicao': posicao_mais_recente
-            }
-        
-        # Registra estatísticas do multiplicador
-        st.session_state.historico_multiplicadores.append({
-            'ciclo': st.session_state.ciclo_atual,
-            'multiplicador': st.session_state.multiplicador_aposta,
-            'resultado': 'GREEN',
-            'lucro': lucro,
-            'numero_origem': numero_origem_atual,
-            'numero_green': numero,
-            'posicao_historico': posicao_mais_recente
-        })
-        
-        # GREEN - Reseta multiplicador e inicia novo ciclo com o número que deu GREEN
-        st.session_state.multiplicador_aposta = 1
+        # GREEN - novo número origem é o número que saiu
+        novo_origem = numero
+        st.session_state.numero_origem = novo_origem
         st.session_state.reds_consecutivos = 0
-        
         st.session_state.ciclo_atual += 1
-        nova_aposta = criar_aposta_com_multiplicador(numero, st.session_state.multiplicador_aposta)
-        if nova_aposta:
-            st.session_state.aposta_atual = nova_aposta
-            st.session_state.ultimo_numero_apostado = numero
-            st.success(f"🎉 GREEN! Multiplicador resetado para 1x")
-            st.success(f"💰 Lucro: ${lucro:+.2f} | Iniciando ciclo {st.session_state.ciclo_atual} com número {numero}")
-        
+        return "GREEN"
+    
     else:
         # RED
-        st.session_state.banca -= aposta['custo_aposta']
-        st.session_state.resultados.append("X")
-        aposta['rodadas_apostadas'] += 1
-        aposta['custo_acumulado'] += aposta['custo_aposta']
-        
-        # Incrementa contador de REDs consecutivos
         st.session_state.reds_consecutivos += 1
         
-        # VERIFICA SE PRECISA DOBRAR AS FICHAS E TROCAR DE NÚMERO (EXATAMENTE NO 3º RED)
+        # Se chegou ao 3º RED, troca para o número seguinte
         if st.session_state.reds_consecutivos == 3:
-            # DOBRA o multiplicador
-            novo_multiplicador = st.session_state.multiplicador_aposta * 2
-            st.session_state.multiplicador_aposta = novo_multiplicador
+            numero_seguinte = encontrar_numero_seguinte(st.session_state.numero_origem)
             
-            # CORREÇÃO: Troca para o NÚMERO SEGUINTE IMEDIATO ao último GREEN
-            novo_numero_origem = encontrar_numero_seguinte_para_troca()
-            
-            if novo_numero_origem is None:
-                # Se não encontrou, mantém o número atual
-                novo_numero_origem = numero_origem_atual
-                st.error("❌ Não foi possível encontrar número seguinte - mantendo número atual")
+            if numero_seguinte is not None:
+                st.session_state.numero_origem = numero_seguinte
+                st.session_state.reds_consecutivos = 0
+                return "TROCA_3_RED"
             else:
-                st.success(f"✅ Número seguinte identificado: {novo_numero_origem}")
-            
-            # Registra aumento do multiplicador e troca de número
-            st.session_state.historico_multiplicadores.append({
-                'ciclo': st.session_state.ciclo_atual,
-                'multiplicador': novo_multiplicador,
-                'resultado': 'DOUBLING',
-                'reds_consecutivos': st.session_state.reds_consecutivos,
-                'numero_anterior': numero_origem_atual,
-                'novo_numero': novo_numero_origem,
-                'posicao_anterior': st.session_state.ultimo_green_info['posicao'] if st.session_state.ultimo_green_info else None
-            })
-            
-            # Cria NOVA aposta com multiplicador dobrado e NOVO número origem
-            nova_aposta = criar_aposta_com_multiplicador(novo_numero_origem, novo_multiplicador)
-            if nova_aposta:
-                st.session_state.aposta_atual = nova_aposta
-                st.session_state.ultimo_numero_apostado = novo_numero_origem
-                st.session_state.reds_consecutivos = 0  # RESETA contador de REDs após troca
-                st.warning(f"🔥 TROCA AUTOMÁTICA! {st.session_state.reds_consecutivos} REDs consecutivos")
-                st.warning(f"🔄 Saindo do número {numero_origem_atual} para o número {novo_numero_origem}")
-                st.warning(f"💰 Multiplicador: {novo_multiplicador}x | Nova aposta: ${nova_aposta['custo_aposta']:.2f}")
+                return "TROCA_FALHOU"
+        
+        return "RED"
 
 def registrar_numero(numero):
     """Registra um novo número"""
     st.session_state.historico.append(numero)
-    processar_numero_com_martingale_controlado(numero)
+    resultado = processar_numero(numero)
+    return resultado
 
 # Interface
-st.title("🎯 Sistema com Martingale + Troca Automática CORRIGIDO")
+st.title("🎯 Estratégia de Apostas - Foco na Escolha do Número")
 
 # Controles
 numero = st.number_input("Último número sorteado (0-36)", 0, 36)
 
 col1, col2 = st.columns(2)
 with col1:
-    if st.button("🎯 Registrar"):
+    if st.button("🎯 Registrar Número"):
         if numero is not None:
-            registrar_numero(numero)
+            resultado = registrar_numero(numero)
+            
+            # Mostra resultado
+            if resultado == "GREEN":
+                st.success(f"🎉 GREEN! Nova origem: {st.session_state.numero_origem}")
+            elif resultado == "TROCA_3_RED":
+                st.warning(f"🔄 Troca automática! Nova origem: {st.session_state.numero_origem}")
+            elif resultado == "PRIMEIRO_NUMERO":
+                st.info(f"🔰 Primeiro número registrado: {st.session_state.numero_origem}")
+            elif resultado == "RED":
+                st.error(f"❌ RED {st.session_state.reds_consecutivos}/3")
+            
             st.rerun()
+
 with col2:
-    if st.button("🔄 Resetar Sistema"):
+    if st.button("🔄 Resetar"):
         st.session_state.historico = []
-        st.session_state.resultados = []
-        st.session_state.banca = 1000
-        st.session_state.aposta_atual = None
-        st.session_state.ciclo_atual = 1
+        st.session_state.numero_origem = None
         st.session_state.reds_consecutivos = 0
-        st.session_state.ultimo_numero_apostado = None
-        st.session_state.multiplicador_aposta = 1
-        st.session_state.historico_multiplicadores = []
-        st.session_state.ultimo_green_info = None
+        st.session_state.ciclo_atual = 1
         st.rerun()
 
 # Upload de CSV
@@ -269,160 +169,88 @@ if uploaded_file:
     try:
         df = pd.read_csv(uploaded_file)
         if 'Número' in df.columns:
-            numeros = df['Número'].tolist()
+            numeros = df['Número'].tolist()[:100]  # Limita a 100 números para teste
             
-            # Limita a 1000 números
-            if len(numeros) > 1000:
-                numeros = numeros[:1000]
-                st.warning(f"Limitado aos primeiros 1000 números")
-            
-            # Reseta tudo
+            # Reseta
             st.session_state.historico = []
-            st.session_state.resultados = []
-            st.session_state.banca = 1000
-            st.session_state.aposta_atual = None
-            st.session_state.ciclo_atual = 1
+            st.session_state.numero_origem = None
             st.session_state.reds_consecutivos = 0
-            st.session_state.ultimo_numero_apostado = None
-            st.session_state.multiplicador_aposta = 1
-            st.session_state.historico_multiplicadores = []
-            st.session_state.ultimo_green_info = None
+            st.session_state.ciclo_atual = 1
             
-            # Processa com barra de progresso
-            progress_bar = st.progress(0)
-            total_numeros = len(numeros)
+            # Processa
+            for num in numeros:
+                registrar_numero(num)
             
-            for i, num in enumerate(numeros):
-                st.session_state.historico.append(num)
-                processar_numero_com_martingale_controlado(num)
-                progress_bar.progress((i + 1) / total_numeros)
-            
-            st.success(f"✅ {total_numeros} números processados!")
+            st.success(f"✅ {len(numeros)} números processados!")
             st.rerun()
             
     except Exception as e:
         st.error(f"Erro: {str(e)}")
 
-# Ciclo Atual
-st.markdown("## 🔄 Ciclo Atual")
+# Status Atual
+st.markdown("## 📊 Status Atual")
 
-if st.session_state.aposta_atual:
-    aposta = st.session_state.aposta_atual
-    
-    col1, col2, col3, col4 = st.columns(4)
+if st.session_state.numero_origem is not None:
+    col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Ciclo", st.session_state.ciclo_atual)
+        st.metric("Número Origem", st.session_state.numero_origem)
     with col2:
-        st.metric("Número Origem", aposta['numero_origem'])
-    with col3:
         st.metric("REDs Consecutivos", st.session_state.reds_consecutivos)
-    with col4:
-        st.metric("Multiplicador", f"{st.session_state.multiplicador_aposta}x")
+    with col3:
+        st.metric("Ciclo", st.session_state.ciclo_atual)
     
-    st.write(f"**Rodadas:** {aposta['rodadas_apostadas']} | **Custo acumulado:** ${aposta['custo_acumulado']:.2f}")
+    # Detalhes da aposta atual
+    aposta = criar_aposta(st.session_state.numero_origem)
+    if aposta:
+        with st.expander("📋 Detalhes da Aposta Atual"):
+            st.write(f"**Números base:** {aposta['numeros_base']}")
+            st.write(f"**Vizinhos:** {aposta['vizinhos']}")
+            st.write(f"**Total números apostados:** {len(aposta['apostas_finais'])}")
+            st.write(f"**Números:** {sorted(aposta['apostas_finais'])}")
     
-    # Mostra informações do último GREEN
-    if st.session_state.ultimo_green_info:
-        green_info = st.session_state.ultimo_green_info
-        st.write(f"**Último GREEN:** Número {green_info['numero_origem']} na posição {green_info['posicao']}")
+    # Próximo número para troca
+    if st.session_state.reds_consecutivos > 0:
+        numero_seguinte = encontrar_numero_seguinte(st.session_state.numero_origem)
+        if numero_seguinte is not None:
+            st.info(f"📌 **Próximo número para troca:** {numero_seguinte} (aparece após {st.session_state.numero_origem})")
         
-        # Mostra próximo número para troca
-        if green_info['posicao'] < len(st.session_state.historico) - 1:
-            proximo_numero = st.session_state.historico[green_info['posicao'] + 1]
-            st.write(f"**Próximo número para troca:** {proximo_numero}")
-    
-    with st.expander("📋 Detalhes da Aposta", expanded=True):
-        st.write(f"**Números:** {aposta['numeros_aposta']}")
-        st.write(f"**Vizinhos:** {aposta['vizinhos']}")
-        
-        # Informações de custo
-        st.write(f"**Custo base:** ${aposta['custo_base']:.2f}")
-        st.write(f"**Custo atual:** ${aposta['custo_aposta']:.2f} ({st.session_state.multiplicador_aposta}x)")
-        st.write(f"**Números únicos:** {len(aposta['fichas_por_numero'])}")
-        
-        # Mostra distribuição de fichas
-        st.write("**Distribuição de Fichas:**")
-        for num, fichas in sorted(aposta['fichas_por_numero'].items()):
-            fichas_base = aposta['fichas_base'].get(num, fichas / st.session_state.multiplicador_aposta)
-            st.write(f"- Número {num}: {fichas} fichas ({fichas_base:.0f} base × {st.session_state.multiplicador_aposta}x)")
-        
-        # Alerta visual para próximo aumento
-        reds_para_proximo_aumento = 3 - st.session_state.reds_consecutivos
-        if st.session_state.reds_consecutivos > 0:
-            if reds_para_proximo_aumento > 0:
-                st.warning(f"⚠️ **{reds_para_proximo_aumento} RED(s) para troca automática + multiplicador**")
-            else:
-                st.error("🚨 **PRÓXIMO RED: TROCA DE NÚMERO + DOBRA MULTIPLICADOR!**")
-    
-else:
-    st.info("Aguardando primeiro número para iniciar ciclo...")
+        reds_restantes = 3 - st.session_state.reds_consecutivos
+        if reds_restantes > 0:
+            st.warning(f"⚠️ **{reds_restantes} RED(s) para troca automática**")
 
-# Histórico de Multiplicadores
-if st.session_state.historico_multiplicadores:
-    st.markdown("## 📈 Histórico de Troca e Multiplicadores")
-    
-    ultimos_multiplicadores = st.session_state.historico_multiplicadores[-10:]  # Últimos 10
-    
-    for hist in ultimos_multiplicadores:
-        if hist['resultado'] == 'DOUBLING':
-            st.write(f"🔄 **Troca Automática** - Ciclo {hist['ciclo']}:")
-            
-            numero_anterior = hist.get('numero_anterior', 'N/A')
-            novo_numero = hist.get('novo_numero', 'N/A')
-            reds_consecutivos = hist.get('reds_consecutivos', 0)
-            posicao_anterior = hist.get('posicao_anterior', 'N/A')
-            
-            st.write(f"   Número {numero_anterior} → {novo_numero}")
-            st.write(f"   Posição anterior: {posicao_anterior} | REDs: {reds_consecutivos}")
-            st.write(f"   Multiplicador: {hist['multiplicador']}x")
-            
-        else:  # GREEN
-            st.write(f"🎉 **GREEN** - Ciclo {hist['ciclo']}:")
-            
-            numero_origem = hist.get('numero_origem', 'N/A')
-            numero_green = hist.get('numero_green', 'N/A')
-            lucro = hist.get('lucro', 0)
-            posicao_historico = hist.get('posicao_historico', 'N/A')
-            
-            st.write(f"   Número {numero_origem} | Multiplicador: {hist['multiplicador']}x")
-            st.write(f"   Número sorteado: {numero_green} | Posição: {posicao_historico}")
-            st.write(f"   Lucro: ${lucro:+.2f}")
-        
-        st.write("---")
-
-# 🎲 RESULTADOS
-st.markdown("## 🎲 Resultados das Apostas")
-
-if st.session_state.resultados:
-    # Limite de 1000 resultados em uma linha
-    resultados_para_mostrar = st.session_state.resultados[-1000:]
-    resultados_string = " ".join(resultados_para_mostrar)
-    
-    st.text_area("", resultados_string, height=100, key="resultados_area")
-    
-    # Estatísticas
-    resultados_validos = [r for r in resultados_para_mostrar if r in ['1', 'X']]
-    total_green = resultados_validos.count("1")
-    total_red = resultados_validos.count("X")
-    total_apostas = len(resultados_validos)
-    
-    if total_apostas > 0:
-        taxa_acerto = (total_green / total_apostas) * 100
-        
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("GREEN", total_green)
-        with col2:
-            st.metric("RED", total_red)
-        with col3:
-            st.metric("Taxa", f"{taxa_acerto:.1f}%")
-        with col4:
-            st.metric("Total", total_apostas)
-    
-    st.metric("💰 Banca", f"${st.session_state.banca:.2f}")
-
-# Histórico recente
+# Histórico Recente
 if st.session_state.historico:
-    st.markdown("### 📊 Últimos números sorteados")
-    ultimos_10 = st.session_state.historico[-10:] if len(st.session_state.historico) >= 10 else st.session_state.historico
-    st.write(" → ".join(map(str, ultimos_10)))
+    st.markdown("### 📈 Histórico Recente")
+    ultimos_15 = st.session_state.historico[-15:] if len(st.session_state.historico) >= 15 else st.session_state.historico
+    
+    # Mostra histórico com destaque para o número origem atual
+    historico_formatado = []
+    for i, num in enumerate(ultimos_15):
+        if num == st.session_state.numero_origem:
+            historico_formatado.append(f"**[{num}]**")
+        else:
+            historico_formatado.append(str(num))
+    
+    st.write(" → ".join(historico_formatado))
+
+# Debug: Mostra informações detalhadas
+with st.expander("🔍 Debug - Informações Detalhadas"):
+    if st.session_state.historico:
+        st.write("**Histórico completo:**", st.session_state.historico)
+        st.write("**Últimas posições do número origem:**")
+        
+        if st.session_state.numero_origem is not None:
+            posicoes = []
+            for i in range(len(st.session_state.historico)-1, -1, -1):
+                if st.session_state.historico[i] == st.session_state.numero_origem:
+                    posicoes.append(i)
+                    if len(posicoes) == 3:
+                        break
+            
+            st.write(f"Posições: {posicoes}")
+            
+            if posicoes:
+                ultima_posicao = posicoes[0]
+                if ultima_posicao < len(st.session_state.historico) - 1:
+                    numero_seguinte = st.session_state.historico[ultima_posicao + 1]
+                    st.write(f"**Número seguinte:** {numero_seguinte} (posição {ultima_posicao + 1})")
