@@ -12,6 +12,10 @@ if 'aposta_atual' not in st.session_state:
     st.session_state.aposta_atual = None
 if 'ciclo_atual' not in st.session_state:
     st.session_state.ciclo_atual = 1
+if 'reds_consecutivos' not in st.session_state:
+    st.session_state.reds_consecutivos = 0
+if 'ultimo_numero_apostado' not in st.session_state:
+    st.session_state.ultimo_numero_apostado = None
 
 # Mapa de vizinhos
 vizinhos_map = {
@@ -34,11 +38,11 @@ def obter_vizinhos(numeros):
     return sorted(vizinhos)
 
 def criar_aposta_rapido(numero):
-    """Versão SUPER otimizada para criar apostas"""
+    """Cria apostas baseado no número"""
     if not st.session_state.historico:
         return None
     
-    # Encontra as últimas 3 ocorrências anteriores RAPIDAMENTE
+    # Encontra as últimas 3 ocorrências anteriores
     ocorrencias = []
     count = 0
     for i in range(len(st.session_state.historico)-2, -1, -1):
@@ -63,7 +67,7 @@ def criar_aposta_rapido(numero):
     # Calcula vizinhos
     vizinhos = obter_vizinhos(set(numeros_aposta))
     
-    # Calcula fichas RAPIDAMENTE
+    # Calcula fichas
     todas_apostas = numeros_aposta + vizinhos
     fichas = {}
     for n in todas_apostas:
@@ -82,20 +86,23 @@ def criar_aposta_rapido(numero):
         'custo_acumulado': 0
     }
 
-def processar_numero_rapido(numero):
-    """Processamento ULTRA rápido"""
-    # Se não há aposta, cria uma
+def processar_numero_com_troca_automatica(numero):
+    """Processa número com troca automática após 3 REDs consecutivos"""
+    
+    # Se não há aposta atual, cria uma baseada no número atual
     if st.session_state.aposta_atual is None:
         aposta = criar_aposta_rapido(numero)
         if aposta:
             st.session_state.aposta_atual = aposta
+            st.session_state.ultimo_numero_apostado = numero
+            st.session_state.reds_consecutivos = 0
         else:
             st.session_state.resultados.append("N")
         return
     
     aposta = st.session_state.aposta_atual
     
-    # Verifica GREEN instantaneamente
+    # Verifica se é GREEN
     if numero in aposta['apostas_finais']:
         fichas = aposta['fichas_por_numero'].get(numero, 0)
         premio = fichas * 36
@@ -103,10 +110,15 @@ def processar_numero_rapido(numero):
         
         st.session_state.banca += lucro
         st.session_state.resultados.append("1")
+        st.session_state.reds_consecutivos = 0  # Reseta contador de REDs
         
-        # Novo ciclo
+        # GREEN - inicia novo ciclo com o número que deu GREEN
         st.session_state.ciclo_atual += 1
-        st.session_state.aposta_atual = criar_aposta_rapido(numero)
+        nova_aposta = criar_aposta_rapido(numero)
+        if nova_aposta:
+            st.session_state.aposta_atual = nova_aposta
+            st.session_state.ultimo_numero_apostado = numero
+            st.success(f"🎉 GREEN! Iniciando ciclo {st.session_state.ciclo_atual} com número {numero}")
         
     else:
         # RED
@@ -114,9 +126,31 @@ def processar_numero_rapido(numero):
         st.session_state.resultados.append("X")
         aposta['rodadas_apostadas'] += 1
         aposta['custo_acumulado'] += aposta['custo_aposta']
+        
+        # Incrementa contador de REDs consecutivos
+        st.session_state.reds_consecutivos += 1
+        
+        # VERIFICA SE PRECISA TROCAR DE ESTRATÉGIA (3 REDs consecutivos)
+        if st.session_state.reds_consecutivos >= 3:
+            # Troca para estratégia do número que acabou de sair
+            nova_aposta = criar_aposta_rapido(numero)
+            if nova_aposta:
+                st.session_state.aposta_atual = nova_aposta
+                st.session_state.ultimo_numero_apostado = numero
+                st.session_state.reds_consecutivos = 0  # Reseta contador
+                st.session_state.ciclo_atual += 1
+                
+                st.warning(f"🔄 TROCA AUTOMÁTICA! 3 REDs consecutivos")
+                st.warning(f"📊 Saindo do número {aposta['numero_origem']} para o número {numero}")
+                st.warning(f"🆕 Iniciando ciclo {st.session_state.ciclo_atual}")
+
+def registrar_numero(numero):
+    """Registra um novo número"""
+    st.session_state.historico.append(numero)
+    processar_numero_com_troca_automatica(numero)
 
 # Interface
-st.title("🎯 Sistema de Ciclos - Aposta Fixa")
+st.title("🎯 Sistema com Troca Automática (3 REDs)")
 
 # Controles
 numero = st.number_input("Último número sorteado (0-36)", 0, 36)
@@ -125,8 +159,7 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button("🎯 Registrar"):
         if numero is not None:
-            st.session_state.historico.append(numero)
-            processar_numero_rapido(numero)
+            registrar_numero(numero)
             st.rerun()
 with col2:
     if st.button("🔄 Resetar Sistema"):
@@ -135,6 +168,8 @@ with col2:
         st.session_state.banca = 1000
         st.session_state.aposta_atual = None
         st.session_state.ciclo_atual = 1
+        st.session_state.reds_consecutivos = 0
+        st.session_state.ultimo_numero_apostado = None
         st.rerun()
 
 # Upload de CSV
@@ -145,7 +180,7 @@ if uploaded_file:
         if 'Número' in df.columns:
             numeros = df['Número'].tolist()
             
-            # Limita a 1000 números para não travar
+            # Limita a 1000 números
             if len(numeros) > 1000:
                 numeros = numeros[:1000]
                 st.warning(f"Limitado aos primeiros 1000 números")
@@ -156,6 +191,8 @@ if uploaded_file:
             st.session_state.banca = 1000
             st.session_state.aposta_atual = None
             st.session_state.ciclo_atual = 1
+            st.session_state.reds_consecutivos = 0
+            st.session_state.ultimo_numero_apostado = None
             
             # Processa com barra de progresso
             progress_bar = st.progress(0)
@@ -163,7 +200,7 @@ if uploaded_file:
             
             for i, num in enumerate(numeros):
                 st.session_state.historico.append(num)
-                processar_numero_rapido(num)
+                processar_numero_com_troca_automatica(num)
                 progress_bar.progress((i + 1) / total_numeros)
             
             st.success(f"✅ {total_numeros} números processados!")
@@ -178,31 +215,41 @@ st.markdown("## 🔄 Ciclo Atual")
 if st.session_state.aposta_atual:
     aposta = st.session_state.aposta_atual
     
-    st.write(f"**CICLO {st.session_state.ciclo_atual}** | **Número de origem:** {aposta['numero_origem']}")
-    st.write(f"**Rodadas apostadas:** {aposta['rodadas_apostadas']} | **Custo acumulado:** ${aposta['custo_acumulado']:.2f}")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Ciclo", st.session_state.ciclo_atual)
+    with col2:
+        st.metric("Número Origem", aposta['numero_origem'])
+    with col3:
+        st.metric("REDs Consecutivos", st.session_state.reds_consecutivos)
     
-    st.markdown("**🎯 Aposta Fixa:**")
-    st.write(f"**Números:** {aposta['numeros_aposta']}")
-    st.write(f"**Vizinhos:** {aposta['vizinhos']}")
+    st.write(f"**Rodadas:** {aposta['rodadas_apostadas']} | **Custo acumulado:** ${aposta['custo_acumulado']:.2f}")
     
-    st.markdown("**💰 Informações:**")
-    st.write(f"**Custo por rodada:** ${aposta['custo_aposta']:.2f}")
-    st.write(f"**Números únicos:** {len(aposta['fichas_por_numero'])}")
+    with st.expander("📋 Detalhes da Aposta", expanded=True):
+        st.write(f"**Números:** {aposta['numeros_aposta']}")
+        st.write(f"**Vizinhos:** {aposta['vizinhos']}")
+        st.write(f"**Custo/rodada:** ${aposta['custo_aposta']:.2f}")
+        st.write(f"**Números únicos:** {len(aposta['fichas_por_numero'])}")
+        
+        # Alerta visual para próximo RED
+        reds_restantes = 3 - st.session_state.reds_consecutivos
+        if st.session_state.reds_consecutivos > 0:
+            if reds_restantes > 0:
+                st.warning(f"⚠️ **{reds_restantes} RED(s) para troca automática**")
+            else:
+                st.error("🚨 **PRÓXIMO RED ATIVA TROCA AUTOMÁTICA!**")
     
 else:
     st.info("Aguardando primeiro número para iniciar ciclo...")
 
-# 🎲 RESULTADOS - FORMATO LINEAR CORRIGIDO
+# 🎲 RESULTADOS
 st.markdown("## 🎲 Resultados das Apostas")
 
 if st.session_state.resultados:
-    # LIMITE de 1000 resultados e TUDO EM UMA LINHA SÓ
-    resultados_para_mostrar = st.session_state.resultados[-1000:]  # Mantém apenas últimos 1000
-    
-    # JUNTA TUDO EM UMA STRING SÓ, LINEAR
+    # Limite de 1000 resultados em uma linha
+    resultados_para_mostrar = st.session_state.resultados[-1000:]
     resultados_string = " ".join(resultados_para_mostrar)
     
-    # Mostra a string completa em uma linha
     st.text_area("", resultados_string, height=100, key="resultados_area")
     
     # Estatísticas
@@ -226,7 +273,7 @@ if st.session_state.resultados:
     
     st.metric("💰 Banca", f"${st.session_state.banca:.2f}")
 
-# Histórico recente (opcional)
+# Histórico recente
 if st.session_state.historico:
     st.markdown("### 📈 Últimos números sorteados")
     ultimos_10 = st.session_state.historico[-10:] if len(st.session_state.historico) >= 10 else st.session_state.historico
