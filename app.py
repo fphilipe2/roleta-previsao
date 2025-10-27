@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# Configuração inicial MUITO simplificada
+# Configuração inicial
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'resultados' not in st.session_state:
@@ -115,36 +115,32 @@ def processar_numero_rapido(numero):
         aposta['rodadas_apostadas'] += 1
         aposta['custo_acumulado'] += aposta['custo_aposta']
 
-# Interface ULTRA LEVE
-st.title("⚡ Sistema Rápido - Ciclos")
+# Interface
+st.title("🎯 Sistema de Ciclos - Aposta Fixa")
 
 # Controles
-numero = st.number_input("Número sorteado (0-36)", 0, 36, key="num_input")
+numero = st.number_input("Último número sorteado (0-36)", 0, 36)
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 with col1:
-    if st.button("🎯 Registrar", use_container_width=True):
+    if st.button("🎯 Registrar"):
         if numero is not None:
             st.session_state.historico.append(numero)
             processar_numero_rapido(numero)
             st.rerun()
 with col2:
-    if st.button("🔄 Resetar", use_container_width=True):
+    if st.button("🔄 Resetar Sistema"):
         st.session_state.historico = []
         st.session_state.resultados = []
         st.session_state.banca = 1000
         st.session_state.aposta_atual = None
         st.session_state.ciclo_atual = 1
         st.rerun()
-with col3:
-    if st.button("📊 Stats", use_container_width=True):
-        st.rerun()
 
-# Upload MUITO rápido
-uploaded_file = st.file_uploader("CSV rápido (apenas coluna 'Número')", type="csv")
+# Upload de CSV
+uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
 if uploaded_file:
     try:
-        # Processamento DIRETO sem loops complexos
         df = pd.read_csv(uploaded_file)
         if 'Número' in df.columns:
             numeros = df['Número'].tolist()
@@ -152,7 +148,7 @@ if uploaded_file:
             # Limita a 1000 números para não travar
             if len(numeros) > 1000:
                 numeros = numeros[:1000]
-                st.warning(f"Limitado aos primeiros 1000 números de {len(df['Número'])}")
+                st.warning(f"Limitado aos primeiros 1000 números")
             
             # Reseta tudo
             st.session_state.historico = []
@@ -161,7 +157,7 @@ if uploaded_file:
             st.session_state.aposta_atual = None
             st.session_state.ciclo_atual = 1
             
-            # Processa CADA número individualmente (mais rápido)
+            # Processa com barra de progresso
             progress_bar = st.progress(0)
             total_numeros = len(numeros)
             
@@ -176,55 +172,62 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Erro: {str(e)}")
 
-# Display RÁPIDO do ciclo atual
-st.markdown("---")
-st.subheader("🔄 Ciclo Atual")
+# Ciclo Atual
+st.markdown("## 🔄 Ciclo Atual")
 
 if st.session_state.aposta_atual:
     aposta = st.session_state.aposta_atual
     
-    st.write(f"**Ciclo {st.session_state.ciclo_atual}** | Origem: **{aposta['numero_origem']}**")
-    st.write(f"Rodadas: **{aposta['rodadas_apostadas']}** | Custo acumulado: **${aposta['custo_acumulado']:.2f}**")
+    st.write(f"**CICLO {st.session_state.ciclo_atual}** | **Número de origem:** {aposta['numero_origem']}")
+    st.write(f"**Rodadas apostadas:** {aposta['rodadas_apostadas']} | **Custo acumulado:** ${aposta['custo_acumulado']:.2f}")
     
-    with st.expander("📋 Ver Aposta", expanded=True):
-        st.write(f"**Números:** {aposta['numeros_aposta']}")
-        st.write(f"**Vizinhos:** {aposta['vizinhos']}")
-        st.write(f"**Custo/rodada:** ${aposta['custo_aposta']:.2f}")
-        
+    st.markdown("**🎯 Aposta Fixa:**")
+    st.write(f"**Números:** {aposta['numeros_aposta']}")
+    st.write(f"**Vizinhos:** {aposta['vizinhos']}")
+    
+    st.markdown("**💰 Informações:**")
+    st.write(f"**Custo por rodada:** ${aposta['custo_aposta']:.2f}")
+    st.write(f"**Números únicos:** {len(aposta['fichas_por_numero'])}")
+    
 else:
-    st.info("⏳ Aguardando primeiro número...")
+    st.info("Aguardando primeiro número para iniciar ciclo...")
 
-# Resultados SIMPLES
-st.markdown("---")
-st.subheader("🎲 Resultados")
+# 🎲 RESULTADOS - FORMATO LINEAR CORRIGIDO
+st.markdown("## 🎲 Resultados das Apostas")
 
 if st.session_state.resultados:
-    # Mostra apenas os últimos 30 resultados
-    ultimos = st.session_state.resultados[-30:] if len(st.session_state.resultados) > 30 else st.session_state.resultados
+    # LIMITE de 1000 resultados e TUDO EM UMA LINHA SÓ
+    resultados_para_mostrar = st.session_state.resultados[-1000:]  # Mantém apenas últimos 1000
     
-    # Formata em linhas de 10 resultados
-    for i in range(0, len(ultimos), 10):
-        linha = " ".join(ultimos[i:i+10])
-        st.code(linha, language=None)
+    # JUNTA TUDO EM UMA STRING SÓ, LINEAR
+    resultados_string = " ".join(resultados_para_mostrar)
     
-    greens = st.session_state.resultados.count("1")
-    reds = st.session_state.resultados.count("X")
-    total = greens + reds
+    # Mostra a string completa em uma linha
+    st.text_area("", resultados_string, height=100, key="resultados_area")
     
-    if total > 0:
-        col1, col2, col3 = st.columns(3)
+    # Estatísticas
+    resultados_validos = [r for r in resultados_para_mostrar if r in ['1', 'X']]
+    total_green = resultados_validos.count("1")
+    total_red = resultados_validos.count("X")
+    total_apostas = len(resultados_validos)
+    
+    if total_apostas > 0:
+        taxa_acerto = (total_green / total_apostas) * 100
+        
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("🎯 GREEN", greens)
+            st.metric("GREEN", total_green)
         with col2:
-            st.metric("🔴 RED", reds)
+            st.metric("RED", total_red)
         with col3:
-            st.metric("📈 Taxa", f"{(greens/total*100):.1f}%")
+            st.metric("Taxa", f"{taxa_acerto:.1f}%")
+        with col4:
+            st.metric("Total", total_apostas)
     
     st.metric("💰 Banca", f"${st.session_state.banca:.2f}")
 
-# Informações do histórico
+# Histórico recente (opcional)
 if st.session_state.historico:
-    st.markdown("---")
-    st.write(f"📊 Histórico: {len(st.session_state.historico)} números")
-    if len(st.session_state.historico) > 10:
-        st.write(f"Últimos 10: {' → '.join(map(str, st.session_state.historico[-10:]))}")
+    st.markdown("### 📈 Últimos números sorteados")
+    ultimos_10 = st.session_state.historico[-10:] if len(st.session_state.historico) >= 10 else st.session_state.historico
+    st.write(" → ".join(map(str, ultimos_10)))
