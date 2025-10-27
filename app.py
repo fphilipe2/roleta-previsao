@@ -306,20 +306,37 @@ if st.session_state.aposta_atual:
 else:
     st.info("Aguardando primeiro número para iniciar ciclo...")
 
-# Histórico de Multiplicadores
+# Histórico de Multiplicadores - CORRIGIDO
 if st.session_state.historico_multiplicadores:
     st.markdown("## 📈 Histórico de Troca e Multiplicadores")
     
     ultimos_multiplicadores = st.session_state.historico_multiplicadores[-10:]  # Últimos 10
+    
     for hist in ultimos_multiplicadores:
+        # CORREÇÃO: Verifica se as chaves existem antes de acessar
         if hist['resultado'] == 'DOUBLING':
             st.write(f"🔄 **Troca Automática** - Ciclo {hist['ciclo']}:")
-            st.write(f"   Número {hist['numero_anterior']} → {hist['novo_numero']}")
-            st.write(f"   Multiplicador: {hist['multiplicador']}x após {hist['reds_consecutivos']} REDs")
-        else:
+            
+            # Verifica se as chaves existem
+            numero_anterior = hist.get('numero_anterior', 'N/A')
+            novo_numero = hist.get('novo_numero', 'N/A')
+            reds_consecutivos = hist.get('reds_consecutivos', 0)
+            
+            st.write(f"   Número {numero_anterior} → {novo_numero}")
+            st.write(f"   Multiplicador: {hist['multiplicador']}x após {reds_consecutivos} REDs")
+            
+        else:  # GREEN
             st.write(f"🎉 **GREEN** - Ciclo {hist['ciclo']}:")
-            st.write(f"   Número {hist['numero_origem']} | Multiplicador: {hist['multiplicador']}x")
-            st.write(f"   Lucro: ${hist['lucro']:+.2f}")
+            
+            # Verifica se as chaves existem
+            numero_origem = hist.get('numero_origem', 'N/A')
+            numero_green = hist.get('numero_green', 'N/A')
+            lucro = hist.get('lucro', 0)
+            
+            st.write(f"   Número {numero_origem} | Multiplicador: {hist['multiplicador']}x")
+            st.write(f"   Número sorteado: {numero_green} | Lucro: ${lucro:+.2f}")
+        
+        st.write("---")
 
 # 🎲 RESULTADOS
 st.markdown("## 🎲 Resultados das Apostas")
