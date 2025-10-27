@@ -20,6 +20,8 @@ if 'multiplicador_aposta' not in st.session_state:
     st.session_state.multiplicador_aposta = 1
 if 'historico_multiplicadores' not in st.session_state:
     st.session_state.historico_multiplicadores = []
+if 'ultimo_green' not in st.session_state:
+    st.session_state.ultimo_green = None
 
 # Mapa de vizinhos
 vizinhos_map = {
@@ -100,6 +102,24 @@ def criar_aposta_com_multiplicador(numero, multiplicador=1):
         'multiplicador_atual': multiplicador
     }
 
+def encontrar_proximo_numero_apos_green():
+    """Encontra o número seguinte ao último GREEN no histórico"""
+    if not st.session_state.historico or st.session_state.ultimo_green is None:
+        return None
+    
+    # Encontra a posição do último GREEN no histórico
+    ultimo_green_pos = None
+    for i in range(len(st.session_state.historico)-1, -1, -1):
+        if st.session_state.historico[i] == st.session_state.ultimo_green:
+            ultimo_green_pos = i
+            break
+    
+    if ultimo_green_pos is None or ultimo_green_pos >= len(st.session_state.historico)-1:
+        return None
+    
+    # Retorna o número seguinte ao GREEN
+    return st.session_state.historico[ultimo_green_pos + 1]
+
 def processar_numero_com_martingale_controlado(numero):
     """Processa número com Martingale controlado (dobrar a cada 3 REDs)"""
     
@@ -125,6 +145,9 @@ def processar_numero_com_martingale_controlado(numero):
         
         st.session_state.banca += lucro
         st.session_state.resultados.append("1")
+        
+        # Atualiza último GREEN
+        st.session_state.ultimo_green = numero_origem_atual
         
         # Registra estatísticas do multiplicador
         st.session_state.historico_multiplicadores.append({
@@ -164,8 +187,12 @@ def processar_numero_com_martingale_controlado(numero):
             novo_multiplicador = st.session_state.multiplicador_aposta * 2
             st.session_state.multiplicador_aposta = novo_multiplicador
             
-            # CORREÇÃO: Troca para o NÚMERO QUE ACABOU DE SAIR (não mantém o mesmo)
-            novo_numero_origem = numero  # Usa o número que acabou de sair
+            # CORREÇÃO: Troca para o NÚMERO SEGUINTE ao último GREEN
+            novo_numero_origem = encontrar_proximo_numero_apos_green()
+            
+            if novo_numero_origem is None:
+                # Se não encontrou, usa o número atual como fallback
+                novo_numero_origem = numero
             
             # Registra aumento do multiplicador e troca de número
             st.session_state.historico_multiplicadores.append({
@@ -174,7 +201,8 @@ def processar_numero_com_martingale_controlado(numero):
                 'resultado': 'DOUBLING',
                 'reds_consecutivos': st.session_state.reds_consecutivos,
                 'numero_anterior': numero_origem_atual,
-                'novo_numero': novo_numero_origem
+                'novo_numero': novo_numero_origem,
+                'ultimo_green': st.session_state.ultimo_green
             })
             
             # Cria NOVA aposta com multiplicador dobrado e NOVO número origem
@@ -192,7 +220,7 @@ def registrar_numero(numero):
     processar_numero_com_martingale_controlado(numero)
 
 # Interface
-st.title("🎯 Sistema com Martingale + Troca Automática")
+st.title("🎯 Sistema com Martingale + Troca Automática CORRIGIDO")
 
 # Controles
 numero = st.number_input("Último número sorteado (0-36)", 0, 36)
@@ -214,6 +242,7 @@ with col2:
         st.session_state.ultimo_numero_apostado = None
         st.session_state.multiplicador_aposta = 1
         st.session_state.historico_multiplicadores = []
+        st.session_state.ultimo_green = None
         st.rerun()
 
 # Upload de CSV
@@ -239,6 +268,7 @@ if uploaded_file:
             st.session_state.ultimo_numero_apostado = None
             st.session_state.multiplicador_aposta = 1
             st.session_state.historico_multiplicadores = []
+            st.session_state.ultimo_green = None
             
             # Processa com barra de progresso
             progress_bar = st.progress(0)
@@ -273,6 +303,10 @@ if st.session_state.aposta_atual:
     
     st.write(f"**Rodadas:** {aposta['rodadas_apostadas']} | **Custo acumulado:** ${aposta['custo_acumulado']:.2f}")
     
+    # Mostra último GREEN se existir
+    if st.session_state.ultimo_green is not None:
+        st.write(f"**Último GREEN:** {st.session_state.ultimo_green}")
+    
     with st.expander("📋 Detalhes da Aposta", expanded=True):
         st.write(f"**Números:** {aposta['numeros_aposta']}")
         st.write(f"**Vizinhos:** {aposta['vizinhos']}")
@@ -306,29 +340,28 @@ if st.session_state.aposta_atual:
 else:
     st.info("Aguardando primeiro número para iniciar ciclo...")
 
-# Histórico de Multiplicadores - CORRIGIDO
+# Histórico de Multiplicadores
 if st.session_state.historico_multiplicadores:
     st.markdown("## 📈 Histórico de Troca e Multiplicadores")
     
     ultimos_multiplicadores = st.session_state.historico_multiplicadores[-10:]  # Últimos 10
     
     for hist in ultimos_multiplicadores:
-        # CORREÇÃO: Verifica se as chaves existem antes de acessar
         if hist['resultado'] == 'DOUBLING':
             st.write(f"🔄 **Troca Automática** - Ciclo {hist['ciclo']}:")
             
-            # Verifica se as chaves existem
             numero_anterior = hist.get('numero_anterior', 'N/A')
             novo_numero = hist.get('novo_numero', 'N/A')
             reds_consecutivos = hist.get('reds_consecutivos', 0)
+            ultimo_green = hist.get('ultimo_green', 'N/A')
             
             st.write(f"   Número {numero_anterior} → {novo_numero}")
-            st.write(f"   Multiplicador: {hist['multiplicador']}x após {reds_consecutivos} REDs")
+            st.write(f"   Último GREEN: {ultimo_green} | REDs: {reds_consecutivos}")
+            st.write(f"   Multiplicador: {hist['multiplicador']}x")
             
         else:  # GREEN
             st.write(f"🎉 **GREEN** - Ciclo {hist['ciclo']}:")
             
-            # Verifica se as chaves existem
             numero_origem = hist.get('numero_origem', 'N/A')
             numero_green = hist.get('numero_green', 'N/A')
             lucro = hist.get('lucro', 0)
