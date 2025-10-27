@@ -109,7 +109,7 @@ def calcular_premiacao(numero_sorteado, fichas_por_numero, custo_aposta):
         return 0, -custo_aposta, False  # RED
 
 def verificar_apostas_do_historico():
-    """Verifica TODAS as apostas do histórico carregado CORRETAMENTE"""
+    """Verifica TODAS as apostas do histórico carregado - MESMA LÓGICA DA INSERÇÃO MANUAL"""
     st.session_state.resultados.clear()
     st.session_state.historico_banca = [1000]  # Banca inicial
     st.session_state.banca = 1000
@@ -117,12 +117,12 @@ def verificar_apostas_do_historico():
     if len(st.session_state.historico) <= 1:
         return
     
-    # Para CADA número no histórico (exceto o primeiro), verifica a aposta do número ANTERIOR
+    # MESMA LÓGICA DA INSERÇÃO MANUAL: para cada novo número, verifica aposta do anterior
     for i in range(1, len(st.session_state.historico)):
         numero_atual = st.session_state.historico[i]
-        numero_anterior = st.session_state.historico[i-1]  # Número que gerou a aposta
+        numero_anterior = st.session_state.historico[i-1]
         
-        # Calcula apostas para o número ANTERIOR
+        # Calcula apostas para o número ANTERIOR (mesma lógica do registrar_numero)
         numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(numero_anterior)
         
         # Calcula fichas e custo
@@ -143,7 +143,7 @@ def verificar_apostas_do_historico():
             st.session_state.resultados.append("X")
 
 def registrar_numero(numero):
-    """Registra um novo número e verifica a aposta do número anterior"""
+    """LÓGICA ORIGINAL DA INSERÇÃO MANUAL (que estava funcionando)"""
     if len(st.session_state.historico) >= 1:
         ultimo_sorteado_anterior = st.session_state.historico[-1]
         
@@ -171,7 +171,7 @@ def registrar_numero(numero):
     st.session_state.historico.append(numero)
 
 # Interface
-st.title("🎯 Estratégia com Simulação de Banca - CORRIGIDO")
+st.title("🎯 Estratégia com Simulação de Banca")
 
 # Controles
 col1, col2 = st.columns(2)
@@ -180,6 +180,7 @@ with col1:
 with col2:
     if st.button("Registrar"):
         registrar_numero(novo_numero)
+        st.rerun()
 
 # Upload de CSV
 uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
@@ -187,12 +188,18 @@ if uploaded_file:
     try:
         dados = pd.read_csv(uploaded_file)
         if 'Número' in dados.columns:
+            # Salva o histórico atual temporariamente
+            historico_anterior = st.session_state.historico.copy() if st.session_state.historico else []
+            
+            # Carrega novo histórico
             st.session_state.historico = dados['Número'].tolist()
             st.success(f"Histórico carregado! {len(dados)} registros.")
             
-            # VERIFICAÇÃO CORRETA DO HISTÓRICO
+            # VERIFICAÇÃO DO HISTÓRICO COM MESMA LÓGICA DA INSERÇÃO MANUAL
             verificar_apostas_do_historico()
             st.success(f"Verificação concluída! {len(st.session_state.resultados)} apostas analisadas.")
+            
+            st.rerun()
             
         else:
             st.error("O arquivo precisa ter a coluna 'Número'")
@@ -260,8 +267,11 @@ with col1:
         if st.session_state.historico:
             verificar_apostas_do_historico()
             st.success("Histórico re-verificado!")
+            st.rerun()
 with col2:
     if st.button("🔄 Resetar Banca"):
         st.session_state.banca = 1000
         st.session_state.historico_banca = [1000]
+        st.session_state.resultados.clear()
         st.success("Banca resetada!")
+        st.rerun()
