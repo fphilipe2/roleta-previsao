@@ -77,12 +77,13 @@ def criar_aposta_com_multiplicador(numero, multiplicador=1):
     for n in todas_apostas:
         fichas_base[n] = fichas_base.get(n, 0) + 1
     
+    custo_base = sum(fichas_base.values())
+    
     # APLICA MULTIPLICADOR nas fichas
     fichas_com_multiplicador = {}
     for numero_ficha, quantidade_base in fichas_base.items():
         fichas_com_multiplicador[numero_ficha] = quantidade_base * multiplicador
     
-    custo_base = sum(fichas_base.values())
     custo_com_multiplicador = sum(fichas_com_multiplicador.values())
     
     return {
@@ -157,21 +158,22 @@ def processar_numero_com_martingale_controlado(numero):
         # VERIFICA SE PRECISA DOBRAR AS FICHAS (a cada 3 REDs consecutivos)
         if st.session_state.reds_consecutivos % 3 == 0:
             # DOBRA o multiplicador
-            st.session_state.multiplicador_aposta *= 2
+            novo_multiplicador = st.session_state.multiplicador_aposta * 2
+            st.session_state.multiplicador_aposta = novo_multiplicador
             
             # Registra aumento do multiplicador
             st.session_state.historico_multiplicadores.append({
                 'ciclo': st.session_state.ciclo_atual,
-                'multiplicador': st.session_state.multiplicador_aposta,
+                'multiplicador': novo_multiplicador,
                 'resultado': 'DOUBLING',
                 'reds_consecutivos': st.session_state.reds_consecutivos
             })
             
-            # Cria NOVA aposta com multiplicador dobrado
-            nova_aposta = criar_aposta_com_multiplicador(aposta['numero_origem'], st.session_state.multiplicador_aposta)
+            # Cria NOVA aposta com multiplicador dobrado (mantém o mesmo número origem)
+            nova_aposta = criar_aposta_com_multiplicador(aposta['numero_origem'], novo_multiplicador)
             if nova_aposta:
                 st.session_state.aposta_atual = nova_aposta
-                st.warning(f"🔥 MULTIPLICADOR AUMENTADO! Agora: {st.session_state.multiplicador_aposta}x")
+                st.warning(f"🔥 MULTIPLICADOR AUMENTADO! Agora: {novo_multiplicador}x")
                 st.warning(f"📊 {st.session_state.reds_consecutivos} REDs consecutivos")
                 st.warning(f"💸 Nova aposta: ${nova_aposta['custo_aposta']:.2f} (base: ${nova_aposta['custo_base']:.2f})")
 
@@ -265,15 +267,25 @@ if st.session_state.aposta_atual:
     with st.expander("📋 Detalhes da Aposta", expanded=True):
         st.write(f"**Números:** {aposta['numeros_aposta']}")
         st.write(f"**Vizinhos:** {aposta['vizinhos']}")
-        st.write(f"**Custo base:** ${aposta['custo_base']:.2f}")
-        st.write(f"**Custo atual:** ${aposta['custo_aposta']:.2f} ({st.session_state.multiplicador_aposta}x)")
+        
+        # CORREÇÃO: Verifica se a chave existe antes de acessar
+        if 'custo_base' in aposta:
+            st.write(f"**Custo base:** ${aposta['custo_base']:.2f}")
+            st.write(f"**Custo atual:** ${aposta['custo_aposta']:.2f} ({st.session_state.multiplicador_aposta}x)")
+        else:
+            # Calcula custo base se não existir
+            custo_base = sum(aposta['fichas_base'].values()) if 'fichas_base' in aposta else aposta['custo_aposta'] / st.session_state.multiplicador_aposta
+            st.write(f"**Custo base:** ${custo_base:.2f}")
+            st.write(f"**Custo atual:** ${aposta['custo_aposta']:.2f} ({st.session_state.multiplicador_aposta}x)")
+        
         st.write(f"**Números únicos:** {len(aposta['fichas_por_numero'])}")
         
-        # Mostra distribuição de fichas
+        # Mostra distribuição de fichas (com verificação de segurança)
         st.write("**Distribuição de Fichas:**")
+        fichas_base_dict = aposta.get('fichas_base', {})
         for num, fichas in sorted(aposta['fichas_por_numero'].items()):
-            fichas_base = aposta['fichas_base'].get(num, 0)
-            st.write(f"- Número {num}: {fichas} fichas ({fichas_base} base × {st.session_state.multiplicador_aposta}x)")
+            fichas_base = fichas_base_dict.get(num, fichas / st.session_state.multiplicador_aposta)
+            st.write(f"- Número {num}: {fichas} fichas ({fichas_base:.0f} base × {st.session_state.multiplicador_aposta}x)")
         
         # Alerta visual para próximo aumento
         reds_para_proximo_aumento = 3 - (st.session_state.reds_consecutivos % 3)
