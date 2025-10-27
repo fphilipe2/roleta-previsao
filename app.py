@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 from collections import deque, defaultdict
-import plotly.graph_objects as go
-import plotly.express as px
 
 # Configuração inicial
 if 'historico' not in st.session_state:
@@ -303,56 +301,36 @@ if st.session_state.analise_vizinhos:
             df_estatisticas = pd.DataFrame(dados_tabela)
             st.dataframe(df_estatisticas, use_container_width=True)
             
-            # Gráfico de média de tempo
-            st.markdown("**Média de Rodadas para Saída dos Vizinhos:**")
-            vizinhos_lista = list(vizinhos_data.keys())
-            medias = [vizinhos_data[v]['media'] for v in vizinhos_lista]
-            
-            fig = go.Figure(data=[
-                go.Bar(x=vizinhos_lista, y=medias, 
-                      text=[f"{m:.1f}" for m in medias],
-                      textposition='auto')
-            ])
-            fig.update_layout(
-                title=f"Média de Rodadas para Vizinhos do {numero_analise}",
-                xaxis_title="Vizinhos",
-                yaxis_title="Rodadas (Média)",
-                showlegend=False
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Heatmap de todos os números
-            st.markdown("### 🗺️ Heatmap de Todos os Números")
-            
-            heatmap_data = []
-            for numero in sorted(estatisticas.keys()):
-                for vizinho in estatisticas[numero]:
-                    heatmap_data.append({
-                        'Número': numero,
-                        'Vizinho': vizinho,
-                        'Média': estatisticas[numero][vizinho]['media']
-                    })
-            
-            if heatmap_data:
-                df_heatmap = pd.DataFrame(heatmap_data)
-                heatmap_pivot = df_heatmap.pivot(index='Número', columns='Vizinho', values='Média')
+            # Tabela simplificada para visualização rápida
+            st.markdown("**Resumo por Vizinho:**")
+            for vizinho, stats in vizinhos_data.items():
+                st.write(f"**Vizinho {vizinho}:** Média {stats['media']:.1f} rodadas "
+                        f"(min {stats['min']}, max {stats['max']}) - "
+                        f"{stats['qtd']} ocorrências")
+        
+        # Tabela geral de todos os números
+        st.markdown("### 📋 Visão Geral de Todos os Números")
+        
+        dados_gerais = []
+        for numero in sorted(estatisticas.keys()):
+            if estatisticas[numero]:
+                media_geral = sum(stats['media'] for stats in estatisticas[numero].values()) / len(estatisticas[numero])
+                vizinho_mais_rapido = min(estatisticas[numero].items(), key=lambda x: x[1]['media'])
+                vizinho_mais_lento = max(estatisticas[numero].items(), key=lambda x: x[1]['media'])
                 
-                fig_heatmap = go.Figure(data=go.Heatmap(
-                    z=heatmap_pivot.values,
-                    x=heatmap_pivot.columns,
-                    y=heatmap_pivot.index,
-                    colorscale='Viridis',
-                    hoverongaps=False,
-                    hovertemplate='Número: %{y}<br>Vizinho: %{x}<br>Média: %{z:.1f} rodadas<extra></extra>'
-                ))
-                fig_heatmap.update_layout(
-                    title="Heatmap - Média de Rodadas para Vizinhos",
-                    xaxis_title="Vizinhos",
-                    yaxis_title="Números Sortedos"
-                )
-                st.plotly_chart(fig_heatmap, use_container_width=True)
+                dados_gerais.append({
+                    'Número': numero,
+                    'Média Geral': f"{media_geral:.1f}",
+                    'Vizinho Mais Rápido': f"{vizinho_mais_rapido[0]} ({vizinho_mais_rapido[1]['media']:.1f} rod)",
+                    'Vizinho Mais Lento': f"{vizinho_mais_lento[0]} ({vizinho_mais_lento[1]['media']:.1f} rod)",
+                    'Total Vizinhos': len(estatisticas[numero])
+                })
+        
+        if dados_gerais:
+            df_geral = pd.DataFrame(dados_gerais)
+            st.dataframe(df_geral, use_container_width=True)
 
-# Estratégia Principal (mantida)
+# Estratégia Principal
 if st.session_state.historico:
     ultimo_numero = st.session_state.historico[-1]
     
@@ -379,6 +357,17 @@ if st.session_state.historico:
         st.write(f"**Números:** {numeros_aposta}")
         st.write(f"**Vizinhos:** {vizinhos}")
         st.write(f"**Custo:** ${custo_aposta:,.2f}")
+        
+        # Mostrar estatísticas dos vizinhos se disponível
+        if (st.session_state.analise_vizinhos and 
+            ultimo_numero in st.session_state.analise_vizinhos):
+            
+            st.markdown("**📊 Estatísticas dos Vizinhos (Histórico):**")
+            vizinhos_stats = st.session_state.analise_vizinhos[ultimo_numero]
+            for vizinho, tempos in vizinhos_stats.items():
+                if tempos:
+                    media = sum(tempos) / len(tempos)
+                    st.write(f"- Vizinho {vizinho}: {len(tempos)}x, média {media:.1f} rodadas")
 
 # Resultados
 st.markdown("## 🎲 Resultados das Apostas")
