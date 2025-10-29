@@ -18,6 +18,8 @@ if 'proximo_numero_origem' not in st.session_state:
     st.session_state.proximo_numero_origem = None
 if 'modo_simulacao' not in st.session_state:
     st.session_state.modo_simulacao = False  # Só True a partir do 3º RED
+if 'maior_custo_aposta' not in st.session_state:
+    st.session_state.maior_custo_aposta = 0  # Novo: maior custo utilizado
 
 # Mapa de vizinhos
 vizinhos_map = {
@@ -114,6 +116,11 @@ def processar_numero_rapido(numero):
             lucro = premio - aposta['custo_aposta']
             st.session_state.banca += lucro
             st.session_state.resultados.append("1")
+            
+            # ATUALIZA MAIOR CUSTO se necessário
+            if aposta['custo_aposta'] > st.session_state.maior_custo_aposta:
+                st.session_state.maior_custo_aposta = aposta['custo_aposta']
+                
         else:
             st.session_state.resultados.append("G")  # Green sem custo
         
@@ -132,6 +139,11 @@ def processar_numero_rapido(numero):
             st.session_state.banca -= aposta['custo_aposta']
             st.session_state.resultados.append("X")
             aposta['custo_acumulado'] += aposta['custo_aposta']
+            
+            # ATUALIZA MAIOR CUSTO se necessário
+            if aposta['custo_aposta'] > st.session_state.maior_custo_aposta:
+                st.session_state.maior_custo_aposta = aposta['custo_aposta']
+                
         else:
             st.session_state.resultados.append("R")  # Red sem custo
         
@@ -180,6 +192,7 @@ with col2:
         st.session_state.reds_consecutivos = 0
         st.session_state.proximo_numero_origem = None
         st.session_state.modo_simulacao = False
+        st.session_state.maior_custo_aposta = 0  # Reseta maior custo
         st.rerun()
 with col3:
     if st.button("📊 Stats", use_container_width=True):
@@ -208,6 +221,7 @@ if uploaded_file:
             st.session_state.reds_consecutivos = 0
             st.session_state.proximo_numero_origem = None
             st.session_state.modo_simulacao = False
+            st.session_state.maior_custo_aposta = 0
             
             # Processa CADA número individualmente (mais rápido)
             progress_bar = st.progress(0)
@@ -262,6 +276,27 @@ if st.session_state.aposta_atual:
         
 else:
     st.info("⏳ Aguardando primeiro número...")
+
+# NOVA SEÇÃO: Maior Custo Utilizado
+st.markdown("---")
+st.subheader("💰 Maior Custo por Aposta")
+
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.metric("Maior Custo", f"${st.session_state.maior_custo_aposta:.2f}")
+with col2:
+    if st.session_state.maior_custo_aposta > 0:
+        st.metric("Banca Mínima", f"${st.session_state.maior_custo_aposta * 3:.2f}")
+    else:
+        st.metric("Banca Mínima", "$0.00")
+with col3:
+    if st.session_state.maior_custo_aposta > 0:
+        risco = "🟢 BAIXO" if st.session_state.maior_custo_aposta <= 20 else "🟡 MÉDIO" if st.session_state.maior_custo_aposta <= 50 else "🔴 ALTO"
+        st.metric("Nível Risco", risco)
+
+if st.session_state.maior_custo_aposta > 0:
+    st.info(f"💡 **Interpretação:** A estratégia já utilizou apostas de até **${st.session_state.maior_custo_aposta:.2f}** por rodada")
+    st.info(f"📊 **Banca recomendada:** Pelo menos **${st.session_state.maior_custo_aposta * 3:.2f}** para suportar sequências de REDs")
 
 # Resultados SIMPLES
 st.markdown("---")
