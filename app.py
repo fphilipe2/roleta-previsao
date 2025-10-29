@@ -1,214 +1,280 @@
 import streamlit as st
 import pandas as pd
-from collections import defaultdict, deque
 
-# Configuração inicial
+# Configuração inicial MUITO simplificada
 if 'historico' not in st.session_state:
     st.session_state.historico = []
-if 'ultimo_clique' not in st.session_state:
-    st.session_state.ultimo_clique = 0
 if 'resultados' not in st.session_state:
-    st.session_state.resultados = deque(maxlen=1000)  # Mantém últimos 1000 resultados
+    st.session_state.resultados = []
+if 'banca' not in st.session_state:
+    st.session_state.banca = 1000
+if 'aposta_atual' not in st.session_state:
+    st.session_state.aposta_atual = None
+if 'ciclo_atual' not in st.session_state:
+    st.session_state.ciclo_atual = 1
+if 'reds_consecutivos' not in st.session_state:
+    st.session_state.reds_consecutivos = 0
+if 'proximo_numero_origem' not in st.session_state:
+    st.session_state.proximo_numero_origem = None
 
-# Estratégia completa (0-36)
-ESTRATEGIA = {
-    0: [0, 5, 10, 23, 26, 32],
-    1: [1, 2, 4, 20, 21, 33],
-    2: [1, 2, 14, 20, 21, 25],
-    3: [3, 8, 23, 26, 30, 35],
-    4: [1, 4, 9, 16, 21, 33],
-    5: [5, 6, 11, 17, 22, 34],
-    6: [6, 9, 13, 18, 24, 29],
-    7: [7, 12, 15, 19, 28, 31],
-    8: [8, 11, 14, 22, 27, 36],
-    9: [9, 10, 16, 23, 30, 34],
-    10: [10, 13, 19, 25, 31, 35],
-    11: [11, 12, 17, 24, 29, 36],
-    12: [12, 15, 18, 26, 32, 35],
-    13: [13, 14, 20, 27, 33, 36],
-    14: [14, 16, 21, 28, 34, 0],
-    15: [15, 17, 22, 29, 32, 1],
-    16: [1, 3, 16, 19, 24, 30],
-    17: [2, 5, 17, 20, 25, 31],
-    18: [6, 9, 18, 21, 26, 32],
-    19: [4, 7, 19, 22, 27, 33],
-    20: [1, 8, 20, 23, 28, 34],
-    21: [2, 9, 14, 21, 29, 35],
-    22: [3, 10, 15, 22, 30, 36],
-    23: [0, 5, 11, 16, 23, 31],
-    24: [1, 6, 12, 17, 24, 32],
-    25: [2, 7, 13, 18, 25, 33],
-    26: [3, 8, 14, 19, 26, 34],
-    27: [4, 9, 15, 20, 27, 35],
-    28: [5, 10, 16, 21, 28, 36],
-    29: [0, 6, 11, 17, 29, 33],
-    30: [1, 7, 12, 18, 30, 34],
-    31: [2, 8, 13, 19, 31, 35],
-    32: [3, 9, 14, 20, 32, 36],
-    33: [0, 4, 10, 15, 21, 33],
-    34: [1, 5, 11, 16, 22, 34],
-    35: [2, 6, 12, 17, 23, 35],
-    36: [0, 2, 7, 13, 24, 36]
+# Mapa de vizinhos
+vizinhos_map = {
+    0: [32, 26], 1: [20, 33], 2: [21, 25], 3: [26, 35], 4: [19, 21],
+    5: [24, 10], 6: [27, 34], 7: [28, 29], 8: [23, 30], 9: [31, 22],
+    10: [5, 16], 11: [30, 36], 12: [35, 28], 13: [27, 36], 14: [20, 31],
+    15: [32, 19], 16: [10, 24], 17: [25, 34], 18: [29, 22], 19: [15, 4],
+    20: [1, 14], 21: [4, 2], 22: [18, 31], 23: [8, 33], 24: [5, 16],
+    25: [17, 2], 26: [3, 0], 27: [6, 13], 28: [7, 12], 29: [18, 7],
+    30: [8, 11], 31: [14, 9], 32: [15, 0], 33: [1, 23], 34: [6, 17],
+    35: [3, 12], 36: [13, 11]
 }
 
-def obter_vizinhos(numero):
-    """Retorna os vizinhos esquerdo e direito de um número na roleta"""
-    if numero == 0:
-        return [36, 1]
-    elif numero == 36:
-        return [35, 0]
-    else:
-        return [numero - 1, numero + 1]
+def obter_vizinhos(numeros):
+    """Versão otimizada para obter vizinhos"""
+    vizinhos = set()
+    for n in numeros:
+        if n in vizinhos_map:
+            vizinhos.update(vizinhos_map[n])
+    return sorted(vizinhos)
 
-def calcular_vizinhos_completos(numeros_palpite, ultimo_sorteado):
-    """Calcula todos os vizinhos dos números do palpite e do último sorteado"""
-    todos_vizinhos = set()
+def criar_aposta_rapido(numero):
+    """Versão SUPER otimizada para criar apostas"""
+    if not st.session_state.historico:
+        return None
     
-    # Adiciona vizinhos dos números do palpite
-    for numero in numeros_palpite:
-        vizinhos = obter_vizinhos(numero)
-        todos_vizinhos.update(vizinhos)
+    # Encontra as últimas 3 ocorrências anteriores RAPIDAMENTE
+    ocorrencias = []
+    count = 0
+    for i in range(len(st.session_state.historico)-2, -1, -1):
+        if st.session_state.historico[i] == numero:
+            ocorrencias.append(i)
+            count += 1
+            if count == 3:
+                break
     
-    # Adiciona vizinhos do último número sorteado
-    vizinhos_ultimo = obter_vizinhos(ultimo_sorteado)
-    todos_vizinhos.update(vizinhos_ultimo)
+    if not ocorrencias:
+        return None
     
-    return sorted(list(todos_vizinhos))
-
-def calcular_apostas_finais(numeros_palpite, vizinhos):
-    """Combina números do palpite com vizinhos, removendo duplicatas"""
-    apostas_finais = set(numeros_palpite)
-    apostas_finais.update(vizinhos)
-    return sorted(list(apostas_finais))
-
-def verificar_resultado_aposta(ultimo_sorteado, apostas_finais):
-    """Verifica se o último número sorteado está nas apostas finais"""
-    if ultimo_sorteado in apostas_finais:
-        return "1"  # GREEN
-    else:
-        return "X"  # RED
-
-def registrar_numero(numero):
-    if st.session_state.historico:
-        ultimo_sorteado = st.session_state.historico[-1]
-        numeros_palpite = ESTRATEGIA.get(ultimo_sorteado, [])
-        vizinhos = calcular_vizinhos_completos(numeros_palpite, ultimo_sorteado)
-        apostas_finais = calcular_apostas_finais(numeros_palpite, vizinhos)
-        
-        resultado = verificar_resultado_aposta(numero, apostas_finais)
-        st.session_state.resultados.append(resultado)
+    # Coleta números rapidamente
+    numeros_aposta = [numero]  # Número alvo
     
-    st.session_state.historico.append(numero)
-
-def obter_numeros_padrao(numero_alvo):
-    """Obtém os 6 números (1 antes e 1 depois das últimas 3 ocorrências)"""
-    numeros_padrao = []
-    
-    # Encontra todas as posições do número no histórico
-    posicoes = [i for i, num in enumerate(st.session_state.historico) if num == numero_alvo]
-    
-    # Pega as últimas 3 ocorrências
-    ultimas_posicoes = posicoes[-3:] if len(posicoes) >= 3 else posicoes
-    
-    for pos in ultimas_posicoes:
-        # Número antes
+    for pos in ocorrencias:
         if pos > 0:
-            antes = st.session_state.historico[pos - 1]
-            if antes not in numeros_padrao:
-                numeros_padrao.append(antes)
-        
-        # Número depois
-        if pos < len(st.session_state.historico) - 1:
-            depois = st.session_state.historico[pos + 1]
-            if depois not in numeros_padrao:
-                numeros_padrao.append(depois)
+            numeros_aposta.append(st.session_state.historico[pos-1])
+        if pos < len(st.session_state.historico)-1:
+            numeros_aposta.append(st.session_state.historico[pos+1])
     
-    return numeros_padrao[:6]  # Retorna no máximo 6 números
+    # Calcula vizinhos
+    vizinhos = obter_vizinhos(set(numeros_aposta))
+    
+    # Calcula fichas RAPIDAMENTE
+    todas_apostas = numeros_aposta + vizinhos
+    fichas = {}
+    for n in todas_apostas:
+        fichas[n] = fichas.get(n, 0) + 1
+    
+    custo = sum(fichas.values())
+    
+    return {
+        'numero_origem': numero,
+        'numeros_aposta': numeros_aposta,
+        'vizinhos': vizinhos,
+        'fichas_por_numero': fichas,
+        'custo_aposta': custo,
+        'apostas_finais': list(set(todas_apostas)),
+        'rodadas_apostadas': 0,
+        'custo_acumulado': 0
+    }
 
-# Interface
-st.title("Estratégia de Apostas na Roleta")
+def processar_numero_rapido(numero):
+    """Processamento ULTRA rápido com nova lógica"""
+    # Se não há aposta, cria uma com o número atual
+    if st.session_state.aposta_atual is None:
+        aposta = criar_aposta_rapido(numero)
+        if aposta:
+            st.session_state.aposta_atual = aposta
+            st.session_state.reds_consecutivos = 0
+            st.session_state.proximo_numero_origem = None
+        else:
+            st.session_state.resultados.append("N")
+        return
+    
+    aposta = st.session_state.aposta_atual
+    numero_origem_atual = aposta['numero_origem']
+    
+    # Verifica GREEN instantaneamente
+    if numero in aposta['apostas_finais']:
+        fichas = aposta['fichas_por_numero'].get(numero, 0)
+        premio = fichas * 36
+        lucro = premio - aposta['custo_aposta']
+        
+        st.session_state.banca += lucro
+        st.session_state.resultados.append("1")
+        
+        # GREEN: número que saiu vira nova origem
+        novo_numero_origem = numero
+        st.session_state.aposta_atual = criar_aposta_rapido(novo_numero_origem)
+        st.session_state.reds_consecutivos = 0
+        st.session_state.proximo_numero_origem = None
+        st.session_state.ciclo_atual += 1
+        
+    else:
+        # RED
+        st.session_state.banca -= aposta['custo_aposta']
+        st.session_state.resultados.append("X")
+        aposta['rodadas_apostadas'] += 1
+        aposta['custo_acumulado'] += aposta['custo_aposta']
+        
+        # Incrementa contador de REDs
+        st.session_state.reds_consecutivos += 1
+        
+        # Se é o PRIMEIRO RED, define o próximo número origem
+        if st.session_state.reds_consecutivos == 1:
+            # O próximo número origem é o número que ACABOU de sair (o RED atual)
+            st.session_state.proximo_numero_origem = numero
+        
+        # Se chegou ao TERCEIRO RED, faz a troca
+        if st.session_state.reds_consecutivos == 3:
+            if st.session_state.proximo_numero_origem is not None:
+                # Troca para o próximo número origem definido no 1º RED
+                novo_numero_origem = st.session_state.proximo_numero_origem
+                st.session_state.aposta_atual = criar_aposta_rapido(novo_numero_origem)
+                st.session_state.reds_consecutivos = 0
+                st.session_state.proximo_numero_origem = None
+
+# Interface ULTRA LEVE
+st.title("⚡ Sistema Rápido - Nova Lógica")
 
 # Controles
-col1, col2 = st.columns(2)
-with col1:
-    novo_numero = st.number_input("Último número sorteado (0-36)", min_value=0, max_value=36)
-with col2:
-    if st.button("Registrar"):
-        registrar_numero(novo_numero)
+numero = st.number_input("Número sorteado (0-36)", 0, 36, key="num_input")
 
-# Upload de CSV
-uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("🎯 Registrar", use_container_width=True):
+        if numero is not None:
+            st.session_state.historico.append(numero)
+            processar_numero_rapido(numero)
+            st.rerun()
+with col2:
+    if st.button("🔄 Resetar", use_container_width=True):
+        st.session_state.historico = []
+        st.session_state.resultados = []
+        st.session_state.banca = 1000
+        st.session_state.aposta_atual = None
+        st.session_state.ciclo_atual = 1
+        st.session_state.reds_consecutivos = 0
+        st.session_state.proximo_numero_origem = None
+        st.rerun()
+with col3:
+    if st.button("📊 Stats", use_container_width=True):
+        st.rerun()
+
+# Upload MUITO rápido
+uploaded_file = st.file_uploader("CSV rápido (apenas coluna 'Número')", type="csv")
 if uploaded_file:
     try:
-        dados = pd.read_csv(uploaded_file)
-        if 'Número' in dados.columns:
-            st.session_state.historico = dados['Número'].tolist()
-            st.success(f"Histórico carregado! {len(dados)} registros.")
-        else:
-            st.error("O arquivo precisa ter a coluna 'Número'")
+        # Processamento DIRETO sem loops complexos
+        df = pd.read_csv(uploaded_file)
+        if 'Número' in df.columns:
+            numeros = df['Número'].tolist()
+            
+            # Limita a 1000 números para não travar
+            if len(numeros) > 1000:
+                numeros = numeros[:1000]
+                st.warning(f"Limitado aos primeiros 1000 números de {len(df['Número'])}")
+            
+            # Reseta tudo
+            st.session_state.historico = []
+            st.session_state.resultados = []
+            st.session_state.banca = 1000
+            st.session_state.aposta_atual = None
+            st.session_state.ciclo_atual = 1
+            st.session_state.reds_consecutivos = 0
+            st.session_state.proximo_numero_origem = None
+            
+            # Processa CADA número individualmente (mais rápido)
+            progress_bar = st.progress(0)
+            total_numeros = len(numeros)
+            
+            for i, num in enumerate(numeros):
+                st.session_state.historico.append(num)
+                processar_numero_rapido(num)
+                progress_bar.progress((i + 1) / total_numeros)
+            
+            st.success(f"✅ {total_numeros} números processados!")
+            st.rerun()
+            
     except Exception as e:
-        st.error(f"Erro ao ler arquivo: {e}")
+        st.error(f"Erro: {str(e)}")
 
-# Exibição das estratégias
-if st.session_state.historico:
-    ultimo_numero = st.session_state.historico[-1]
+# Display RÁPIDO do ciclo atual
+st.markdown("---")
+st.subheader("🔄 Ciclo Atual")
+
+if st.session_state.aposta_atual:
+    aposta = st.session_state.aposta_atual
     
-    # Estratégia principal
-    numeros_palpite = ESTRATEGIA.get(ultimo_numero, [])
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Ciclo", st.session_state.ciclo_atual)
+    with col2:
+        st.metric("Origem", aposta['numero_origem'])
+    with col3:
+        st.metric("REDs", f"{st.session_state.reds_consecutivos}/3")
+    with col4:
+        st.metric("Banca", f"${st.session_state.banca:.2f}")
     
-    # Calcular vizinhos
-    vizinhos = calcular_vizinhos_completos(numeros_palpite, ultimo_numero)
+    st.write(f"**Rodadas:** {aposta['rodadas_apostadas']} | **Custo acumulado:** ${aposta['custo_acumulado']:.2f}")
     
-    # Apostas finais (palpite + vizinhos)
-    apostas_finais = calcular_apostas_finais(numeros_palpite, vizinhos)
+    # Mostra próximo número origem se definido
+    if st.session_state.proximo_numero_origem is not None:
+        st.info(f"📌 **Próxima origem (se 3º RED):** {st.session_state.proximo_numero_origem}")
     
-    # Nova estratégia - Padrão das últimas ocorrências
-    numeros_padrao = obter_numeros_padrao(ultimo_numero)
-    
-    st.subheader(f"Último número sorteado: {ultimo_numero}")
-    
-    # Estratégia Principal Expandida
-    st.markdown("**🎯 Estratégia Principal**")
-    st.write(f"**Números do palpite original:** {numeros_palpite}")
-    st.write(f"**Vizinhos dos números do palpite + vizinhos do último sorteado ({ultimo_numero}):** {vizinhos}")
-    st.write(f"**APOSTAS FINAIS (Palpite + Vizinhos):** {apostas_finais}")
-    
-    # Nova Estratégia - Padrão
-    st.markdown("**📊 Padrão das Últimas Ocorrências**")
-    if numeros_padrao:
-        st.write(f"Números (1 antes e 1 depois das últimas {min(3, st.session_state.historico.count(ultimo_numero))} saídas): {numeros_padrao}")
-    else:
-        st.write("Número ainda não tem ocorrências anteriores suficientes")
-    
-    # Histórico recente
-    st.subheader("📈 Últimos números sorteados")
-    st.write(" → ".join(map(str, st.session_state.historico[-10:])))
-    
-    # Resultados das Apostas
-    st.subheader("📊 Resultados das Apostas")
-    if st.session_state.resultados:
-        # Mostra os últimos 20 resultados
-        resultados_display = " ".join(list(st.session_state.resultados)[-20:])
-        st.write(resultados_display)
-        st.write(f"Total de registros: {len(st.session_state.resultados)}")
-    else:
-        st.write("Aguardando próximos resultados...")
+    with st.expander("📋 Ver Aposta", expanded=False):
+        st.write(f"**Números base:** {aposta['numeros_aposta']}")
+        st.write(f"**Vizinhos:** {aposta['vizinhos']}")
+        st.write(f"**Custo/rodada:** ${aposta['custo_aposta']:.2f}")
+        st.write(f"**Total números:** {len(aposta['apostas_finais'])}")
+        
 else:
-    st.warning("Registre um número ou carregue um histórico para ver as apostas")
+    st.info("⏳ Aguardando primeiro número...")
 
-# Exportar histórico
-if st.button("📥 Exportar Histórico"):
-    if st.session_state.historico:
-        df = pd.DataFrame({
-            'Número': st.session_state.historico,
-            'Resultado_Aposta': list(st.session_state.resultados) + [''] * (len(st.session_state.historico) - len(st.session_state.resultados))
-        })
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="Baixar CSV",
-            data=csv,
-            file_name='historico_roleta.csv',
-            mime='text/csv'
-        )
-    else:
-        st.warning("Nenhum dado para exportar")
+# Resultados SIMPLES
+st.markdown("---")
+st.subheader("🎲 Resultados")
+
+if st.session_state.resultados:
+    # Mostra apenas os últimos 30 resultados
+    ultimos = st.session_state.resultados[-30:] if len(st.session_state.resultados) > 30 else st.session_state.resultados
+    
+    # Formata em linhas de 10 resultados
+    for i in range(0, len(ultimos), 10):
+        linha = " ".join(ultimos[i:i+10])
+        st.code(linha, language=None)
+    
+    greens = st.session_state.resultados.count("1")
+    reds = st.session_state.resultados.count("X")
+    total = greens + reds
+    
+    if total > 0:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("🎯 GREEN", greens)
+        with col2:
+            st.metric("🔴 RED", reds)
+        with col3:
+            st.metric("📈 Taxa", f"{(greens/total*100):.1f}%")
+
+# Informações do histórico
+if st.session_state.historico:
+    st.markdown("---")
+    st.write(f"📊 Histórico: {len(st.session_state.historico)} números")
+    if len(st.session_state.historico) > 10:
+        st.write(f"Últimos 10: {' → '.join(map(str, st.session_state.historico[-10:]))}")
+
+# Debug info
+with st.expander("🔍 Debug Info"):
+    st.write(f"REDs consecutivos: {st.session_state.reds_consecutivos}")
+    st.write(f"Próximo número origem: {st.session_state.proximo_numero_origem}")
+    if st.session_state.aposta_atual:
+        st.write(f"Número origem atual: {st.session_state.aposta_atual['numero_origem']}")
