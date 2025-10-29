@@ -17,9 +17,7 @@ if 'reds_consecutivos' not in st.session_state:
 if 'proximo_numero_origem' not in st.session_state:
     st.session_state.proximo_numero_origem = None
 if 'modo_simulacao' not in st.session_state:
-    st.session_state.modo_simulacao = False
-if 'multiplicador_atual' not in st.session_state:
-    st.session_state.multiplicador_atual = 1  # Martingale starts at 1x
+    st.session_state.modo_simulacao = False  # Só True a partir do 3º RED
 
 # Mapa de vizinhos
 vizinhos_map = {
@@ -41,12 +39,12 @@ def obter_vizinhos(numeros):
             vizinhos.update(vizinhos_map[n])
     return sorted(vizinhos)
 
-def criar_aposta_com_martingale(numero):
-    """Cria apostas com multiplicador Martingale"""
+def criar_aposta_rapido(numero):
+    """Versão SUPER otimizada para criar apostas"""
     if not st.session_state.historico:
         return None
     
-    # Encontra as últimas 3 ocorrências anteriores
+    # Encontra as últimas 3 ocorrências anteriores RAPIDAMENTE
     ocorrencias = []
     count = 0
     for i in range(len(st.session_state.historico)-2, -1, -1):
@@ -71,47 +69,35 @@ def criar_aposta_com_martingale(numero):
     # Calcula vizinhos
     vizinhos = obter_vizinhos(set(numeros_aposta))
     
-    # Calcula fichas BASE (sem multiplicador)
+    # Calcula fichas RAPIDAMENTE
     todas_apostas = numeros_aposta + vizinhos
-    fichas_base = {}
+    fichas = {}
     for n in todas_apostas:
-        fichas_base[n] = fichas_base.get(n, 0) + 1
+        fichas[n] = fichas.get(n, 0) + 1
     
-    custo_base = sum(fichas_base.values())
-    
-    # APLICA MULTIPLICADOR MARTINGALE nas fichas
-    multiplicador = st.session_state.multiplicador_atual if st.session_state.modo_simulacao else 1
-    fichas_com_multiplicador = {}
-    for numero_ficha, quantidade_base in fichas_base.items():
-        fichas_com_multiplicador[numero_ficha] = quantidade_base * multiplicador
-    
-    custo_com_multiplicador = sum(fichas_com_multiplicador.values())
+    custo = sum(fichas.values())
     
     return {
         'numero_origem': numero,
         'numeros_aposta': numeros_aposta,
         'vizinhos': vizinhos,
-        'fichas_base': fichas_base,
-        'fichas_por_numero': fichas_com_multiplicador,
-        'custo_base': custo_base,
-        'custo_aposta': custo_com_multiplicador,
+        'fichas_por_numero': fichas,
+        'custo_aposta': custo,
         'apostas_finais': list(set(todas_apostas)),
         'rodadas_apostadas': 0,
-        'custo_acumulado': 0,
-        'multiplicador': multiplicador
+        'custo_acumulado': 0
     }
 
-def processar_numero_com_martingale(numero):
-    """Processamento com Martingale"""
+def processar_numero_rapido(numero):
+    """Processamento ULTRA rápido com nova lógica"""
     # Se não há aposta, cria uma com o número atual
     if st.session_state.aposta_atual is None:
-        aposta = criar_aposta_com_martingale(numero)
+        aposta = criar_aposta_rapido(numero)
         if aposta:
             st.session_state.aposta_atual = aposta
             st.session_state.reds_consecutivos = 0
             st.session_state.proximo_numero_origem = None
-            st.session_state.modo_simulacao = False
-            st.session_state.multiplicador_atual = 1  # Começa com 1x
+            st.session_state.modo_simulacao = False  # Começa sem simulação
         else:
             st.session_state.resultados.append("N")
         return
@@ -128,17 +114,15 @@ def processar_numero_com_martingale(numero):
             lucro = premio - aposta['custo_aposta']
             st.session_state.banca += lucro
             st.session_state.resultados.append("1")
-            
-            # GREEN com custo: RESETA Martingale para 1x
-            st.session_state.multiplicador_atual = 1
         else:
             st.session_state.resultados.append("G")  # Green sem custo
         
         # GREEN: número que saiu vira nova origem
         novo_numero_origem = numero
-        st.session_state.aposta_atual = criar_aposta_com_martingale(novo_numero_origem)
+        st.session_state.aposta_atual = criar_aposta_rapido(novo_numero_origem)
         st.session_state.reds_consecutivos = 0
         st.session_state.proximo_numero_origem = None
+        st.session_state.modo_simulacao = False  # Reseta modo simulação
         st.session_state.ciclo_atual += 1
         
     else:
@@ -148,9 +132,6 @@ def processar_numero_com_martingale(numero):
             st.session_state.banca -= aposta['custo_aposta']
             st.session_state.resultados.append("X")
             aposta['custo_acumulado'] += aposta['custo_aposta']
-            
-            # RED com custo: DOBRA o Martingale para o próximo ciclo
-            st.session_state.multiplicador_atual *= 2
         else:
             st.session_state.resultados.append("R")  # Red sem custo
         
@@ -172,12 +153,12 @@ def processar_numero_com_martingale(numero):
             if st.session_state.proximo_numero_origem is not None:
                 # Troca para o próximo número origem definido no 1º RED
                 novo_numero_origem = st.session_state.proximo_numero_origem
-                st.session_state.aposta_atual = criar_aposta_com_martingale(novo_numero_origem)
+                st.session_state.aposta_atual = criar_aposta_rapido(novo_numero_origem)
                 st.session_state.reds_consecutivos = 0
                 st.session_state.proximo_numero_origem = None
 
-# Interface
-st.title("⚡ Sistema com Martingale - Dobra a cada RED")
+# Interface ULTRA LEVE
+st.title("⚡ Sistema - Simulação a partir do 3º RED")
 
 # Controles
 numero = st.number_input("Número sorteado (0-36)", 0, 36, key="num_input")
@@ -187,7 +168,7 @@ with col1:
     if st.button("🎯 Registrar", use_container_width=True):
         if numero is not None:
             st.session_state.historico.append(numero)
-            processar_numero_com_martingale(numero)
+            processar_numero_rapido(numero)
             st.rerun()
 with col2:
     if st.button("🔄 Resetar", use_container_width=True):
@@ -199,16 +180,16 @@ with col2:
         st.session_state.reds_consecutivos = 0
         st.session_state.proximo_numero_origem = None
         st.session_state.modo_simulacao = False
-        st.session_state.multiplicador_atual = 1
         st.rerun()
 with col3:
     if st.button("📊 Stats", use_container_width=True):
         st.rerun()
 
-# Upload rápido
+# Upload MUITO rápido
 uploaded_file = st.file_uploader("CSV rápido (apenas coluna 'Número')", type="csv")
 if uploaded_file:
     try:
+        # Processamento DIRETO sem loops complexos
         df = pd.read_csv(uploaded_file)
         if 'Número' in df.columns:
             numeros = df['Número'].tolist()
@@ -227,15 +208,14 @@ if uploaded_file:
             st.session_state.reds_consecutivos = 0
             st.session_state.proximo_numero_origem = None
             st.session_state.modo_simulacao = False
-            st.session_state.multiplicador_atual = 1
             
-            # Processa números
+            # Processa CADA número individualmente (mais rápido)
             progress_bar = st.progress(0)
             total_numeros = len(numeros)
             
             for i, num in enumerate(numeros):
                 st.session_state.historico.append(num)
-                processar_numero_com_martingale(num)
+                processar_numero_rapido(num)
                 progress_bar.progress((i + 1) / total_numeros)
             
             st.success(f"✅ {total_numeros} números processados!")
@@ -244,14 +224,14 @@ if uploaded_file:
     except Exception as e:
         st.error(f"Erro: {str(e)}")
 
-# Display do ciclo atual
+# Display RÁPIDO do ciclo atual
 st.markdown("---")
 st.subheader("🔄 Status do Ciclo")
 
 if st.session_state.aposta_atual:
     aposta = st.session_state.aposta_atual
     
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Ciclo", st.session_state.ciclo_atual)
     with col2:
@@ -261,8 +241,6 @@ if st.session_state.aposta_atual:
     with col4:
         status_modo = "💰 ATIVO" if st.session_state.modo_simulacao else "⏳ AGUARDANDO"
         st.metric("Modo", status_modo)
-    with col5:
-        st.metric("Multiplicador", f"{st.session_state.multiplicador_atual}x")
     
     st.write(f"**Rodadas:** {aposta['rodadas_apostadas']} | **Custo acumulado:** ${aposta['custo_acumulado']:.2f}")
     
@@ -270,29 +248,22 @@ if st.session_state.aposta_atual:
     if st.session_state.proximo_numero_origem is not None:
         st.info(f"📌 **Próxima origem (se 3º RED):** {st.session_state.proximo_numero_origem}")
     
-    # Informação sobre modo simulação e Martingale
+    # Informação sobre modo simulação
     if not st.session_state.modo_simulacao:
-        st.warning("🔸 **MODO OBSERVAÇÃO:** Aguardando 3º RED para iniciar simulação")
+        st.warning("🔸 **MODO OBSERVAÇÃO:** Aguardando 3º RED para iniciar simulação com fichas")
     else:
-        st.success(f"🎯 **MODO SIMULAÇÃO ATIVO:** Martingale {st.session_state.multiplicador_atual}x - Contabilizando fichas")
+        st.success("🎯 **MODO SIMULAÇÃO ATIVO:** Contabilizando fichas e custos")
     
-    with st.expander("📋 Detalhes da Aposta", expanded=False):
+    with st.expander("📋 Ver Aposta", expanded=False):
         st.write(f"**Números base:** {aposta['numeros_aposta']}")
         st.write(f"**Vizinhos:** {aposta['vizinhos']}")
-        st.write(f"**Custo base:** ${aposta['custo_base']:.2f}")
-        st.write(f"**Custo atual:** ${aposta['custo_aposta']:.2f} (x{aposta['multiplicador']})")
+        st.write(f"**Custo/rodada:** ${aposta['custo_aposta']:.2f}")
         st.write(f"**Total números:** {len(aposta['apostas_finais'])}")
-        
-        # Mostra distribuição de fichas
-        st.write("**Distribuição de Fichas:**")
-        for num, fichas in sorted(aposta['fichas_por_numero'].items()):
-            fichas_base = aposta['fichas_base'].get(num, fichas / aposta['multiplicador'])
-            st.write(f"- Número {num}: {fichas} fichas ({fichas_base:.0f} base × {aposta['multiplicador']}x)")
         
 else:
     st.info("⏳ Aguardando primeiro número...")
 
-# Resultados
+# Resultados SIMPLES
 st.markdown("---")
 st.subheader("🎲 Resultados")
 
@@ -342,30 +313,13 @@ if st.session_state.historico:
 
 # Legenda dos resultados
 st.markdown("---")
-st.subheader("📖 Legenda do Sistema")
+st.subheader("📖 Legenda dos Resultados")
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.write("🎯 **1** = GREEN com custo")
-    st.write("🔄 **Reset Martingale**")
 with col2:
     st.write("🔴 **X** = RED com custo")  
-    st.write("📈 **Dobra Martingale**")
 with col3:
     st.write("🟢 **G** = GREEN sem custo")
-    st.write("⚖️ Mantém estratégia")
 with col4:
     st.write("⚫ **R** = RED sem custo")
-    st.write("📊 Conta para 3º RED")
-
-# Informações do Martingale
-st.markdown("---")
-st.subheader("🎰 Sistema Martingale")
-st.write("**Regras do Martingale:**")
-st.write("- 🔸 **Antes do 3º RED**: Sem custos, multiplicador 1x")
-st.write("- 🎯 **GREEN com custo**: Reseta multiplicador para 1x")  
-st.write("- 🔴 **RED com custo**: Dobra multiplicador para próximo ciclo")
-st.write("- 📈 **Progressão**: 1x → 2x → 4x → 8x → 16x → ...")
-
-# Histórico de multiplicadores (apenas os últimos)
-if st.session_state.modo_simulacao:
-    st.info(f"🔢 **Multiplicador atual:** {st.session_state.multiplicador_atual}x")
