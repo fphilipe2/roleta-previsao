@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# Configuração inicial MUITO simplificada
+# Configuração inicial
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'resultados' not in st.session_state:
@@ -12,6 +12,12 @@ if 'aposta_atual' not in st.session_state:
     st.session_state.aposta_atual = None
 if 'ciclo_atual' not in st.session_state:
     st.session_state.ciclo_atual = 1
+if 'reds_consecutivos' not in st.session_state:
+    st.session_state.reds_consecutivos = 0
+if 'proximo_numero_origem' not in st.session_state:
+    st.session_state.proximo_numero_origem = None
+if 'modo_simulacao' not in st.session_state:
+    st.session_state.modo_simulacao = False  # Só True a partir do 3º RED
 
 # Mapa de vizinhos
 vizinhos_map = {
@@ -83,40 +89,76 @@ def criar_aposta_rapido(numero):
     }
 
 def processar_numero_rapido(numero):
-    """Processamento ULTRA rápido"""
-    # Se não há aposta, cria uma
+    """Processamento ULTRA rápido com nova lógica"""
+    # Se não há aposta, cria uma com o número atual
     if st.session_state.aposta_atual is None:
         aposta = criar_aposta_rapido(numero)
         if aposta:
             st.session_state.aposta_atual = aposta
+            st.session_state.reds_consecutivos = 0
+            st.session_state.proximo_numero_origem = None
+            st.session_state.modo_simulacao = False  # Começa sem simulação
         else:
             st.session_state.resultados.append("N")
         return
     
     aposta = st.session_state.aposta_atual
+    numero_origem_atual = aposta['numero_origem']
     
     # Verifica GREEN instantaneamente
     if numero in aposta['apostas_finais']:
-        fichas = aposta['fichas_por_numero'].get(numero, 0)
-        premio = fichas * 36
-        lucro = premio - aposta['custo_aposta']
+        # Só contabiliza se estiver em modo simulação (após 3º RED)
+        if st.session_state.modo_simulacao:
+            fichas = aposta['fichas_por_numero'].get(numero, 0)
+            premio = fichas * 36
+            lucro = premio - aposta['custo_aposta']
+            st.session_state.banca += lucro
+            st.session_state.resultados.append("1")
+        else:
+            st.session_state.resultados.append("G")  # Green sem custo
         
-        st.session_state.banca += lucro
-        st.session_state.resultados.append("1")
-        
-        # Novo ciclo
+        # GREEN: número que saiu vira nova origem
+        novo_numero_origem = numero
+        st.session_state.aposta_atual = criar_aposta_rapido(novo_numero_origem)
+        st.session_state.reds_consecutivos = 0
+        st.session_state.proximo_numero_origem = None
+        st.session_state.modo_simulacao = False  # Reseta modo simulação
         st.session_state.ciclo_atual += 1
-        st.session_state.aposta_atual = criar_aposta_rapido(numero)
         
     else:
         # RED
-        st.session_state.banca -= aposta['custo_aposta']
-        st.session_state.resultados.append("X")
+        # Só contabiliza custo se estiver em modo simulação (após 3º RED)
+        if st.session_state.modo_simulacao:
+            st.session_state.banca -= aposta['custo_aposta']
+            st.session_state.resultados.append("X")
+            aposta['custo_acumulado'] += aposta['custo_aposta']
+        else:
+            st.session_state.resultados.append("R")  # Red sem custo
+        
         aposta['rodadas_apostadas'] += 1
-        aposta['custo_acumulado'] += aposta['custo_aposta']
+        
+        # Incrementa contador de REDs
+        st.session_state.reds_consecutivos += 1
+        
+        # Se é o PRIMEIRO RED, define o próximo número origem
+        if st.session_state.reds_consecutivos == 1:
+            # O próximo número origem é o número que ACABOU de sair (o RED atual)
+            st.session_state.proximo_numero_origem = numero
+        
+        # Se chegou ao TERCEIRO RED, ativa modo simulação e faz a troca
+        if st.session_state.reds_consecutivos == 3:
+            # ATIVA MODO SIMULAÇÃO - A partir de agora contabiliza fichas
+            st.session_state.modo_simulacao = True
+            
+            if st.session_state.proximo_numero_origem is not None:
+                # Troca para o próximo número origem definido no 1º RED
+                novo_numero_origem = st.session_state.proximo_numero_origem
+                st.session_state.aposta_atual = criar_aposta_rapido(novo_numero_origem)
+                st.session_state.reds_consecutivos = 0
+                st.session_state.proximo_numero_origem = None
 
 # Interface ULTRA LEVE
-st.title("⚡ Sistema Rápido - Ciclos")
+st.title("⚡ Sistema - Simulação a partir do 3º RED")
 
 # Controles
 numero = st.number_input("Número sorteado (0-36)", 0, 36, key="num_input")
@@ -135,6 +177,9 @@ with col2:
         st.session_state.banca = 1000
         st.session_state.aposta_atual = None
         st.session_state.ciclo_atual = 1
+        st.session_state.reds_consecutivos = 0
+        st.session_state.proximo_numero_origem = None
+        st.session_state.modo_simulacao = False
         st.rerun()
 with col3:
     if st.button("📊 Stats", use_container_width=True):
@@ -160,6 +205,9 @@ if uploaded_file:
             st.session_state.banca = 1000
             st.session_state.aposta_atual = None
             st.session_state.ciclo_atual = 1
+            st.session_state.reds_consecutivos = 0
+            st.session_state.proximo_numero_origem = None
+            st.session_state.modo_simulacao = False
             
             # Processa CADA número individualmente (mais rápido)
             progress_bar = st.progress(0)
@@ -178,18 +226,39 @@ if uploaded_file:
 
 # Display RÁPIDO do ciclo atual
 st.markdown("---")
-st.subheader("🔄 Ciclo Atual")
+st.subheader("🔄 Status do Ciclo")
 
 if st.session_state.aposta_atual:
     aposta = st.session_state.aposta_atual
     
-    st.write(f"**Ciclo {st.session_state.ciclo_atual}** | Origem: **{aposta['numero_origem']}**")
-    st.write(f"Rodadas: **{aposta['rodadas_apostadas']}** | Custo acumulado: **${aposta['custo_acumulado']:.2f}**")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("Ciclo", st.session_state.ciclo_atual)
+    with col2:
+        st.metric("Origem", aposta['numero_origem'])
+    with col3:
+        st.metric("REDs", f"{st.session_state.reds_consecutivos}/3")
+    with col4:
+        status_modo = "💰 ATIVO" if st.session_state.modo_simulacao else "⏳ AGUARDANDO"
+        st.metric("Modo", status_modo)
     
-    with st.expander("📋 Ver Aposta", expanded=True):
-        st.write(f"**Números:** {aposta['numeros_aposta']}")
+    st.write(f"**Rodadas:** {aposta['rodadas_apostadas']} | **Custo acumulado:** ${aposta['custo_acumulado']:.2f}")
+    
+    # Mostra próximo número origem se definido
+    if st.session_state.proximo_numero_origem is not None:
+        st.info(f"📌 **Próxima origem (se 3º RED):** {st.session_state.proximo_numero_origem}")
+    
+    # Informação sobre modo simulação
+    if not st.session_state.modo_simulacao:
+        st.warning("🔸 **MODO OBSERVAÇÃO:** Aguardando 3º RED para iniciar simulação com fichas")
+    else:
+        st.success("🎯 **MODO SIMULAÇÃO ATIVO:** Contabilizando fichas e custos")
+    
+    with st.expander("📋 Ver Aposta", expanded=False):
+        st.write(f"**Números base:** {aposta['numeros_aposta']}")
         st.write(f"**Vizinhos:** {aposta['vizinhos']}")
         st.write(f"**Custo/rodada:** ${aposta['custo_aposta']:.2f}")
+        st.write(f"**Total números:** {len(aposta['apostas_finais'])}")
         
 else:
     st.info("⏳ Aguardando primeiro número...")
@@ -207,20 +276,33 @@ if st.session_state.resultados:
         linha = " ".join(ultimos[i:i+10])
         st.code(linha, language=None)
     
-    greens = st.session_state.resultados.count("1")
-    reds = st.session_state.resultados.count("X")
-    total = greens + reds
+    # Estatísticas considerando apenas resultados com custo (X e 1)
+    resultados_com_custo = [r for r in st.session_state.resultados if r in ['1', 'X']]
+    greens = resultados_com_custo.count("1")
+    reds = resultados_com_custo.count("X")
+    total_com_custo = greens + reds
     
-    if total > 0:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("🎯 GREEN", greens)
-        with col2:
-            st.metric("🔴 RED", reds)
-        with col3:
-            st.metric("📈 Taxa", f"{(greens/total*100):.1f}%")
+    # Todos os resultados (incluindo sem custo)
+    todos_greens = st.session_state.resultados.count("1") + st.session_state.resultados.count("G")
+    todos_reds = st.session_state.resultados.count("X") + st.session_state.resultados.count("R")
+    total_geral = len(st.session_state.resultados)
     
-    st.metric("💰 Banca", f"${st.session_state.banca:.2f}")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("🎯 GREEN", greens)
+    with col2:
+        st.metric("🔴 RED", reds)
+    with col3:
+        if total_com_custo > 0:
+            st.metric("📈 Taxa", f"{(greens/total_com_custo*100):.1f}%")
+        else:
+            st.metric("📈 Taxa", "0%")
+    with col4:
+        st.metric("💰 Banca", f"${st.session_state.banca:.2f}")
+    
+    # Info sobre resultados sem custo
+    if total_geral > total_com_custo:
+        st.info(f"📊 Total geral: {todos_greens} GREEN / {todos_reds} RED (incluindo {total_geral - total_com_custo} sem custo)")
 
 # Informações do histórico
 if st.session_state.historico:
@@ -228,3 +310,16 @@ if st.session_state.historico:
     st.write(f"📊 Histórico: {len(st.session_state.historico)} números")
     if len(st.session_state.historico) > 10:
         st.write(f"Últimos 10: {' → '.join(map(str, st.session_state.historico[-10:]))}")
+
+# Legenda dos resultados
+st.markdown("---")
+st.subheader("📖 Legenda dos Resultados")
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.write("🎯 **1** = GREEN com custo")
+with col2:
+    st.write("🔴 **X** = RED com custo")  
+with col3:
+    st.write("🟢 **G** = GREEN sem custo")
+with col4:
+    st.write("⚫ **R** = RED sem custo")
