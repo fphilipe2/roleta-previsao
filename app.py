@@ -7,10 +7,6 @@ if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'resultados' not in st.session_state:
     st.session_state.resultados = deque(maxlen=1000)
-if 'banca' not in st.session_state:
-    st.session_state.banca = 1000
-if 'historico_banca' not in st.session_state:
-    st.session_state.historico_banca = [1000]
 
 # Mapa de vizinhos da roleta europeia
 vizinhos_map = {
@@ -24,6 +20,14 @@ vizinhos_map = {
     35: [3, 12], 36: [13, 11]
 }
 
+# Mapa de simétricos (baseado nos seus exemplos)
+simetricos_map = {
+    0: 10, 1: 21, 2: 20, 3: 8, 4: 33, 5: 32, 6: 22, 7: 36, 8: 3, 9: 17,
+    10: 0, 11: 12, 12: 11, 13: 7, 14: 25, 15: 24, 16: 19, 17: 9, 18: 6, 19: 16,
+    20: 2, 21: 1, 22: 34, 23: 26, 24: 15, 25: 14, 26: 23, 27: 29, 28: 36, 29: 27,
+    30: 35, 31: 25, 32: 5, 33: 4, 34: 9, 35: 30, 36: 28
+}
+
 def obter_vizinhos_roleta(numeros):
     """Retorna os vizinhos baseados no layout físico da roleta europeia"""
     todos_vizinhos = set()
@@ -33,175 +37,107 @@ def obter_vizinhos_roleta(numeros):
             todos_vizinhos.update(vizinhos)
     return sorted(list(todos_vizinhos))
 
-def obter_ultimas_ocorrencias_anteriores(numero_alvo, excluir_ultima=True):
-    """Obtém as últimas 3 ocorrências ANTERIORES do número (excluindo a última ocorrência)"""
-    ocorrencias_com_vizinhos = []
-    
-    # Encontra todas as posições do número no histórico
-    posicoes = [i for i, num in enumerate(st.session_state.historico) if num == numero_alvo]
-    
-    # Se deve excluir a última ocorrência (a que acabou de sair)
-    if excluir_ultima and posicoes:
-        posicoes = posicoes[:-1]  # Remove a última ocorrência
-    
-    # Pega as últimas 3 ocorrências anteriores
-    ultimas_posicoes = posicoes[-3:] if len(posicoes) >= 3 else posicoes
-    
-    for pos in ultimas_posicoes:
-        ocorrencia = {
-            'posicao': pos,
-            'numero': st.session_state.historico[pos],
-            'antes': st.session_state.historico[pos - 1] if pos > 0 else None,
-            'depois': st.session_state.historico[pos + 1] if pos < len(st.session_state.historico) - 1 else None
-        }
-        ocorrencias_com_vizinhos.append(ocorrencia)
-    
-    return ocorrencias_com_vizinhos
+def obter_simetricos(numeros):
+    """Retorna os números simétricos dos números fornecidos"""
+    simetricos = set()
+    for numero in numeros:
+        if numero in simetricos_map:
+            simetrico = simetricos_map[numero]
+            simetricos.add(simetrico)
+    return sorted(list(simetricos))
 
-def calcular_apostas_para_numero(numero_alvo, excluir_ultima_ocorrencia=True):
-    """Calcula as apostas para um número baseado nas últimas 3 ocorrências ANTERIORES"""
-    ocorrencias = obter_ultimas_ocorrencias_anteriores(numero_alvo, excluir_ultima_ocorrencia)
+def obter_numeros_nao_sorteados(ultimas_rodadas=75):
+    """Analisa os números que NÃO saíram nas últimas X rodadas"""
+    if len(st.session_state.historico) < ultimas_rodadas:
+        return []  # Não há dados suficientes
     
-    # Coleta todos os números para apostar
-    numeros_aposta = []
+    # Pega as últimas X rodadas
+    ultimos_numeros = st.session_state.historico[-ultimas_rodadas:]
     
-    # O NÚMERO ALVO aparece APENAS UMA VEZ (se tiver ocorrências anteriores)
-    if ocorrencias:
-        numeros_aposta.append(numero_alvo)
+    # Todos os números possíveis (0-36)
+    todos_numeros = set(range(0, 37))
     
-    for ocorrencia in ocorrencias:
-        # Adiciona número antes (se existir) - PODE REPETIR
-        if ocorrencia['antes'] is not None:
-            numeros_aposta.append(ocorrencia['antes'])
-        
-        # Adiciona número depois (se existir) - PODE REPETIR
-        if ocorrencia['depois'] is not None:
-            numeros_aposta.append(ocorrencia['depois'])
+    # Números que saíram nas últimas X rodadas
+    numeros_sorteados = set(ultimos_numeros)
     
-    # Calcula vizinhos
-    numeros_unicos = list(set(numeros_aposta))
-    vizinhos = obter_vizinhos_roleta(numeros_unicos)
+    # Números que NÃO saíram
+    numeros_nao_sorteados = todos_numeros - numeros_sorteados
     
-    # Apostas finais (com duplicatas para cálculo de fichas)
-    apostas_com_duplicatas = numeros_aposta + vizinhos
-    
-    return numeros_aposta, vizinhos, apostas_com_duplicatas
-
-def calcular_fichas_aposta(apostas_com_duplicatas):
-    """Calcula quantas fichas serão colocadas em cada número"""
-    fichas_por_numero = {}
-    
-    for numero in apostas_com_duplicatas:
-        if numero in fichas_por_numero:
-            fichas_por_numero[numero] += 1
-        else:
-            fichas_por_numero[numero] = 1
-    
-    return fichas_por_numero
-
-def calcular_custo_aposta(fichas_por_numero):
-    """Calcula o custo total da aposta"""
-    return sum(fichas_por_numero.values())
-
-def calcular_premiacao(numero_sorteado, fichas_por_numero, custo_aposta):
-    """Calcula a premiação se o número sorteado estiver nas apostas"""
-    if numero_sorteado in fichas_por_numero:
-        fichas_no_numero = fichas_por_numero[numero_sorteado]
-        premio = fichas_no_numero * 36
-        lucro = premio - custo_aposta
-        return premio, lucro, True  # GREEN
-    else:
-        return 0, -custo_aposta, False  # RED
+    return sorted(list(numeros_nao_sorteados))
 
 def verificar_apostas_do_historico():
-    """Verifica TODAS as apostas do histórico carregado"""
-    st.session_state.resultados.clear()
-    st.session_state.historico_banca = [1000]  # Banca inicial
-    st.session_state.banca = 1000
+    """Verifica todas as apostas do histórico carregado"""
+    st.session_state.resultados.clear()  # Limpa resultados anteriores
     
-    if len(st.session_state.historico) <= 1:
-        return
+    if len(st.session_state.historico) <= 75:
+        return  # Não há apostas para verificar
     
-    # Para cada número a partir da posição 1, verifica as apostas baseadas no PRÓPRIO número
-    for i in range(1, len(st.session_state.historico)):
+    # Para cada número a partir da posição 75, verifica a aposta
+    for i in range(75, len(st.session_state.historico)):
         numero_atual = st.session_state.historico[i]
-        numero_que_gerou_aposta = st.session_state.historico[i]  # O PRÓPRIO número atual
         
-        # Calcula apostas para o PRÓPRIO número (excluindo a última ocorrência)
-        numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
-            numero_que_gerou_aposta, excluir_ultima_ocorrencia=True
-        )
+        # Pega as últimas 75 rodadas ANTES deste número
+        inicio = max(0, i - 75)
+        ultimos_75_anteriores = st.session_state.historico[inicio:i]
         
-        # Se não há ocorrências anteriores suficientes, não há aposta
-        if not numeros_aposta:
-            st.session_state.resultados.append("N")  # NO BET
-            st.session_state.historico_banca.append(st.session_state.banca)
-            continue
+        # Calcula números atrasados
+        numeros_sorteados_75 = set(ultimos_75_anteriores)
+        todos_numeros = set(range(0, 37))
+        numeros_atrasados = sorted(list(todos_numeros - numeros_sorteados_75))
         
-        # Calcula fichas e custo
-        fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
-        custo_aposta = calcular_custo_aposta(fichas_por_numero)
-        
-        # Verifica resultado (o próximo número será verificado na próxima iteração)
-        # Para a última posição, não há próximo número para verificar
-        if i < len(st.session_state.historico) - 1:
-            proximo_numero = st.session_state.historico[i + 1]
-            premio, lucro, is_green = calcular_premiacao(proximo_numero, fichas_por_numero, custo_aposta)
+        if numeros_atrasados:
+            # NOVA ESTRATÉGIA: Números atrasados + Simétricos + Vizinhos de ambos
+            simetricos = obter_simetricos(numeros_atrasados)
             
-            # Atualiza banca
-            st.session_state.banca += lucro
-            st.session_state.historico_banca.append(st.session_state.banca)
+            # Combina números atrasados com seus simétricos
+            todos_numeros_estrategia = set(numeros_atrasados) | set(simetricos)
             
-            # Registra resultado
-            if is_green:
-                st.session_state.resultados.append("1")
+            # Calcula vizinhos de todos os números da estratégia
+            vizinhos = obter_vizinhos_roleta(list(todos_numeros_estrategia))
+            
+            # Apostas finais
+            apostas_anteriores = sorted(list(todos_numeros_estrategia | set(vizinhos)))
+            
+            # Verifica resultado
+            if numero_atual in apostas_anteriores:
+                st.session_state.resultados.append("1")  # GREEN
             else:
-                st.session_state.resultados.append("X")
-        else:
-            # Último número do histórico - não tem próximo para verificar
-            st.session_state.resultados.append("-")
-            st.session_state.historico_banca.append(st.session_state.banca)
+                st.session_state.resultados.append("X")  # RED
 
 def registrar_numero(numero):
-    """Registra um novo número e verifica a aposta baseada no PRÓPRIO número"""
-    # Primeiro adiciona o número ao histórico
-    st.session_state.historico.append(numero)
+    # Primeiro verifica o resultado da aposta anterior (se houver histórico suficiente)
+    if len(st.session_state.historico) >= 75:
+        # Obtém os números atrasados das últimas 75 rodadas (excluindo o último número)
+        ultimos_75_anteriores = st.session_state.historico[-76:-1]  # Exclui o último número
+        numeros_sorteados_75 = set(ultimos_75_anteriores)
+        todos_numeros = set(range(0, 37))
+        numeros_atrasados = sorted(list(todos_numeros - numeros_sorteados_75))
+        
+        # Calcula as apostas para a rodada anterior
+        if numeros_atrasados:
+            # NOVA ESTRATÉGIA: Números atrasados + Simétricos + Vizinhos de ambos
+            simetricos = obter_simetricos(numeros_atrasados)
+            
+            # Combina números atrasados com seus simétricos
+            todos_numeros_estrategia = set(numeros_atrasados) | set(simetricos)
+            
+            # Calcula vizinhos de todos os números da estratégia
+            vizinhos = obter_vizinhos_roleta(list(todos_numeros_estrategia))
+            
+            # Apostas finais
+            apostas_anteriores = sorted(list(todos_numeros_estrategia | set(vizinhos)))
+            
+            # Verifica se o NOVO número está nas apostas da rodada anterior
+            if numero in apostas_anteriores:
+                st.session_state.resultados.append("1")  # GREEN
+            else:
+                st.session_state.resultados.append("X")  # RED
     
-    # Para verificar a aposta, precisamos de pelo menos 2 números no histórico
-    if len(st.session_state.historico) >= 2:
-        # O número que vai gerar a aposta é o PENÚLTIMO (excluindo o que acabou de ser adicionado)
-        numero_que_gerou_aposta = st.session_state.historico[-2]
-        
-        # Calcula apostas para o número ANTERIOR (excluindo a última ocorrência)
-        numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
-            numero_que_gerou_aposta, excluir_ultima_ocorrencia=True
-        )
-        
-        # Se não há ocorrências anteriores suficientes, não há aposta
-        if not numeros_aposta:
-            st.session_state.resultados.append("N")  # NO BET
-            st.session_state.historico_banca.append(st.session_state.banca)
-            return
-        
-        # Calcula fichas e custo
-        fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
-        custo_aposta = calcular_custo_aposta(fichas_por_numero)
-        
-        # Verifica resultado com o número ATUAL (que acabou de ser adicionado)
-        premio, lucro, is_green = calcular_premiacao(numero, fichas_por_numero, custo_aposta)
-        
-        # Atualiza banca
-        st.session_state.banca += lucro
-        st.session_state.historico_banca.append(st.session_state.banca)
-        
-        # Registra resultado
-        if is_green:
-            st.session_state.resultados.append("1")
-        else:
-            st.session_state.resultados.append("X")
+    # Adiciona o novo número ao histórico
+    st.session_state.historico.append(numero)
 
 # Interface
-st.title("🎯 Estratégia Corrigida - Ocorrências Anteriores")
+st.title("🎯 Nova Estratégia - Números Atrasados + Simétricos")
 
 # Controles
 col1, col2 = st.columns(2)
@@ -210,7 +146,6 @@ with col1:
 with col2:
     if st.button("Registrar"):
         registrar_numero(novo_numero)
-        st.rerun()
 
 # Upload de CSV
 uploaded_file = st.file_uploader("Carregar histórico (CSV)", type="csv")
@@ -221,11 +156,9 @@ if uploaded_file:
             st.session_state.historico = dados['Número'].tolist()
             st.success(f"Histórico carregado! {len(dados)} registros.")
             
-            # VERIFICAÇÃO CORRIGIDA
+            # VERIFICA AUTOMATICAMENTE AS APOSTAS DO HISTÓRICO
             verificar_apostas_do_historico()
             st.success(f"Verificação concluída! {len(st.session_state.resultados)} apostas analisadas.")
-            
-            st.rerun()
             
         else:
             st.error("O arquivo precisa ter a coluna 'Número'")
@@ -238,74 +171,101 @@ if st.session_state.historico:
     
     st.subheader(f"Último número sorteado: {ultimo_numero}")
     
-    # ESTRATÉGIA - Mostra as apostas para o PRÓXIMO número baseado no ÚLTIMO número
-    st.markdown("### 🎯 Próximas Apostas (baseadas no último número)")
+    # NOVA ESTRATÉGIA: Números Atrasados + Simétricos
+    st.markdown("### 🎯 Nova Estratégia: Números Atrasados + Simétricos")
     
-    # Calcula apostas para o último número (excluindo a última ocorrência)
-    numeros_aposta, vizinhos, apostas_com_duplicatas = calcular_apostas_para_numero(
-        ultimo_numero, excluir_ultima_ocorrencia=True
-    )
-    fichas_por_numero = calcular_fichas_aposta(apostas_com_duplicatas)
-    custo_aposta = calcular_custo_aposta(fichas_por_numero)
+    # Analisa números não sorteados nas últimas 75 rodadas
+    numeros_atrasados = obter_numeros_nao_sorteados(75)
     
-    # Mostra as últimas ocorrências ANTERIORES (excluindo a última)
-    ocorrencias = obter_ultimas_ocorrencias_anteriores(ultimo_numero, excluir_ultima=True)
-    
-    if ocorrencias:
-        st.markdown("**Últimas ocorrências ANTERIORES:**")
-        for i, ocorrencia in enumerate(ocorrencias, 1):
-            antes = f"{ocorrencia['antes']} → " if ocorrencia['antes'] is not None else ""
-            depois = f" → {ocorrencia['depois']}" if ocorrencia['depois'] is not None else ""
-            st.write(f"{i}. {antes}{ocorrencia['numero']}{depois}")
-    else:
-        st.write("Número não tem ocorrências anteriores suficientes para apostar")
-    
-    if numeros_aposta:
-        st.markdown("**Números para apostar:**")
-        st.write(f"**{numeros_aposta}**")
+    if numeros_atrasados:
+        st.markdown(f"**Números que NÃO saíram nas últimas 75 rodadas ({len(numeros_atrasados)} números):**")
+        st.write(f"**{numeros_atrasados}**")
         
-        st.markdown("**Vizinhos:**")
+        # Calcula simétricos
+        simetricos = obter_simetricos(numeros_atrasados)
+        st.markdown("**Simétricos dos números atrasados:**")
+        st.write(f"**{simetricos}**")
+        
+        # Combina números atrasados + simétricos
+        todos_numeros_estrategia = sorted(list(set(numeros_atrasados) | set(simetricos)))
+        st.markdown("**Números da estratégia (Atrasados + Simétricos):**")
+        st.write(f"**{todos_numeros_estrategia}**")
+        
+        # Calcula vizinhos
+        vizinhos = obter_vizinhos_roleta(todos_numeros_estrategia)
+        st.markdown("**Vizinhos da estratégia:**")
         st.write(f"**{vizinhos}**")
         
-        st.markdown("**Distribuição de Fichas:**")
-        for numero, fichas in sorted(fichas_por_numero.items()):
-            st.write(f"- Número {numero}: {fichas} ficha{'s' if fichas > 1 else ''}")
+        # Apostas finais (números + vizinhos)
+        apostas_finais = sorted(list(set(todos_numeros_estrategia) | set(vizinhos)))
+        st.markdown("**Apostas Finais (Números + Simétricos + Vizinhos):**")
+        st.write(f"**{apostas_finais}**")
         
-        st.markdown("**💰 Próxima Aposta:**")
-        st.write(f"- **Custo:** ${custo_aposta:,.2f}")
-        st.write(f"- **Números únicos:** {len(fichas_por_numero)}")
+        # Estatísticas
+        st.markdown("**📊 Estatísticas:**")
+        st.write(f"- Números atrasados: {len(numeros_atrasados)}")
+        st.write(f"- Simétricos: {len(simetricos)}")
+        st.write(f"- Total de números apostados: {len(apostas_finais)}")
+        st.write(f"- Cobertura da roleta: {(len(apostas_finais)/37*100):.1f}%")
+        
+    else:
+        if len(st.session_state.historico) < 75:
+            st.write(f"⚠️ Aguardando mais dados... ({len(st.session_state.historico)}/75 rodadas)")
+        else:
+            st.write("🎉 Todos os números saíram nas últimas 75 rodadas!")
     
-    # Resultados
+    # Histórico recente
+    st.subheader("📈 Últimos números sorteados")
+    st.write(" → ".join(map(str, st.session_state.historico[-10:])))
+    
+    # Resultados das Apostas
     st.subheader("🎲 Resultados das Apostas")
     if st.session_state.resultados:
-        # Filtra apenas resultados 1/X (remove N e -)
-        resultados_validos = [r for r in st.session_state.resultados if r in ['1', 'X']]
-        resultados_display = " ".join(resultados_validos)
+        # Mostra TODOS os resultados
+        resultados_display = " ".join(list(st.session_state.resultados))
         st.write(resultados_display)
-        st.write(f"Total de apostas: {len(resultados_validos)}")
+        st.write(f"Total de apostas registradas: {len(st.session_state.resultados)}")
         
-        if resultados_validos:
-            total_green = resultados_validos.count("1")
-            total_red = resultados_validos.count("X")
-            taxa = (total_green / len(resultados_validos)) * 100
-            st.write(f"**GREEN: {total_green}** | **RED: {total_red}** | **Taxa: {taxa:.1f}%**")
+        total_green = list(st.session_state.resultados).count("1")
+        total_red = list(st.session_state.resultados).count("X")
+        if len(st.session_state.resultados) > 0:
+            taxa_acerto = (total_green / len(st.session_state.resultados)) * 100
+            st.write(f"**GREEN: {total_green}** | **RED: {total_red}** | **Taxa de acerto: {taxa_acerto:.1f}%**")
             
-            lucro_total = st.session_state.banca - 1000
-            st.write(f"**Banca Atual:** ${st.session_state.banca:,.2f}")
-            st.write(f"**Lucro Total:** ${lucro_total:+.2f}")
+            # Mostrar também os últimos 20 para referência rápida
+            if len(st.session_state.resultados) > 20:
+                st.write(f"**Últimos 20 resultados:** {" ".join(list(st.session_state.resultados)[-20:])}")
+    else:
+        if len(st.session_state.historico) >= 75:
+            st.write("Nenhuma aposta registrada. Use o botão 'Registrar' para começar.")
+        else:
+            st.write(f"Aguardando mais dados... ({len(st.session_state.historico)}/75 rodadas)")
 
-# Botões de controle
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("🔄 Re-verificar Histórico"):
-        if st.session_state.historico:
-            verificar_apostas_do_historico()
-            st.success("Histórico re-verificado!")
-            st.rerun()
-with col2:
-    if st.button("🔄 Resetar Banca"):
-        st.session_state.banca = 1000
-        st.session_state.historico_banca = [1000]
-        st.session_state.resultados.clear()
-        st.success("Banca resetada!")
-        st.rerun()
+# Botão para forçar re-verificação do histórico
+if st.button("🔄 Re-verificar Histórico"):
+    if st.session_state.historico:
+        verificar_apostas_do_historico()
+        st.success(f"Re-verificação concluída! {len(st.session_state.resultados)} apostas analisadas.")
+    else:
+        st.warning("Nenhum histórico para verificar")
+
+# Exportar histórico
+if st.button("📥 Exportar Histórico"):
+    if st.session_state.historico:
+        resultados_export = list(st.session_state.resultados)
+        if len(resultados_export) < len(st.session_state.historico) - 75:
+            resultados_export = [''] * (len(st.session_state.historico) - 75 - len(resultados_export)) + resultados_export
+        
+        df = pd.DataFrame({
+            'Número': st.session_state.historico,
+            'Resultado_Aposta': [''] * 75 + resultados_export  # Primeiros 75 sem resultado
+        })
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Baixar CSV",
+            data=csv,
+            file_name='historico_roleta_nova_estrategia.csv',
+            mime='text/csv'
+        )
+    else:
+        st.warning("Nenhum dado para exportar")
