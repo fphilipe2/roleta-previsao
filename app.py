@@ -29,7 +29,7 @@ def obter_vizinhos_roleta(numeros):
             todos_vizinhos.update(vizinhos)
     return sorted(list(todos_vizinhos))
 
-def obter_numeros_nao_sorteados(ultimas_rodadas=50):
+def obter_numeros_nao_sorteados(ultimas_rodadas=75):
     """Analisa os números que NÃO saíram nas últimas X rodadas"""
     if len(st.session_state.historico) < ultimas_rodadas:
         return []  # Não há dados suficientes
@@ -50,12 +50,12 @@ def obter_numeros_nao_sorteados(ultimas_rodadas=50):
 
 def registrar_numero(numero):
     # Primeiro verifica o resultado da aposta anterior (se houver histórico suficiente)
-    if len(st.session_state.historico) >= 50:
-        # Obtém os números atrasados das últimas 50 rodadas (excluindo o último número)
-        ultimos_50_anteriores = st.session_state.historico[-51:-1]  # Exclui o último número
-        numeros_sorteados_50 = set(ultimos_50_anteriores)
+    if len(st.session_state.historico) >= 75:
+        # Obtém os números atrasados das últimas 75 rodadas (excluindo o último número)
+        ultimos_75_anteriores = st.session_state.historico[-51:-1]  # Exclui o último número
+        numeros_sorteados_75 = set(ultimos_75_anteriores)
         todos_numeros = set(range(0, 37))
-        numeros_atrasados = sorted(list(todos_numeros - numeros_sorteados_50))
+        numeros_atrasados = sorted(list(todos_numeros - numeros_sorteados_75))
         
         # Calcula as apostas para a rodada anterior
         if numeros_atrasados:
@@ -104,11 +104,11 @@ if st.session_state.historico:
     # ESTRATÉGIA: Números Atrasados
     st.markdown("### 🎯 Estratégia: Números Atrasados")
     
-    # Analisa números não sorteados nas últimas 50 rodadas
-    numeros_atrasados = obter_numeros_nao_sorteados(50)
+    # Analisa números não sorteados nas últimas 75 rodadas
+    numeros_atrasados = obter_numeros_nao_sorteados(75)
     
     if numeros_atrasados:
-        st.markdown(f"**Números que NÃO saíram nas últimas 50 rodadas ({len(numeros_atrasados)} números):**")
+        st.markdown(f"**Números que NÃO saíram nas últimas 75 rodadas ({len(numeros_atrasados)} números):**")
         st.write(f"**{numeros_atrasados}**")
         
         # Calcula vizinhos dos números atrasados
@@ -127,10 +127,10 @@ if st.session_state.historico:
         st.write(f"- Cobertura da roleta: {(len(apostas_finais)/37*100):.1f}%")
         
     else:
-        if len(st.session_state.historico) < 50:
-            st.write(f"⚠️ Aguardando mais dados... ({len(st.session_state.historico)}/50 rodadas)")
+        if len(st.session_state.historico) < 75:
+            st.write(f"⚠️ Aguardando mais dados... ({len(st.session_state.historico)}/75 rodadas)")
         else:
-            st.write("🎉 Todos os números saíram nas últimas 50 rodadas!")
+            st.write("🎉 Todos os números saíram nas últimas 75 rodadas!")
     
     # Histórico recente
     st.subheader("📈 Últimos números sorteados")
@@ -152,18 +152,18 @@ if st.session_state.historico:
             # Estatísticas adicionais
             st.write(f"**Sequência atual:** {list(st.session_state.resultados)[-5:]}")
     else:
-        st.write("Aguardando próximos resultados... (mínimo 50 rodadas para análise)")
+        st.write("Aguardando próximos resultados... (mínimo 75 rodadas para análise)")
 
 # Exportar histórico
 if st.button("📥 Exportar Histórico"):
     if st.session_state.historico:
         resultados_export = list(st.session_state.resultados)
-        if len(resultados_export) < len(st.session_state.historico) - 50:
-            resultados_export = [''] * (len(st.session_state.historico) - 50 - len(resultados_export)) + resultados_export
+        if len(resultados_export) < len(st.session_state.historico) - 75:
+            resultados_export = [''] * (len(st.session_state.historico) - 75 - len(resultados_export)) + resultados_export
         
         df = pd.DataFrame({
             'Número': st.session_state.historico,
-            'Resultado_Aposta': [''] * 50 + resultados_export  # Primeiros 50 sem resultado
+            'Resultado_Aposta': [''] * 75 + resultados_export  # Primeiros 75 sem resultado
         })
         csv = df.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -174,3 +174,4 @@ if st.button("📥 Exportar Histórico"):
         )
     else:
         st.warning("Nenhum dado para exportar")
+
