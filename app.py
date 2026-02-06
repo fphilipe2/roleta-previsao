@@ -31,7 +31,7 @@ def obter_vizinhos_roleta(numeros):
             todos_vizinhos.update(vizinhos)
     return sorted(list(todos_vizinhos))
 
-def obter_numeros_nao_sorteados(ultimas_rodadas=65):
+def obter_numeros_nao_sorteados(ultimas_rodadas=50):
     """Analisa os números que NÃO saíram nas últimas X rodadas"""
     if len(st.session_state.historico) < ultimas_rodadas:
         return []
@@ -46,15 +46,15 @@ def obter_numeros_nao_sorteados(ultimas_rodadas=65):
 def registrar_numero(numero):
     historico_list = list(st.session_state.historico)
     
-    # Só valida se tivermos pelo menos 65 números no histórico
-    if len(historico_list) >= 65:
-        # Pega os 65 números anteriores ao atual
-        ultimos_65_anteriores = historico_list[-65:]  # Inclui o número atual no final
+    # Só valida se tivermos pelo menos 50 números no histórico
+    if len(historico_list) >= 50:
+        # Pega os 50 números anteriores ao atual
+        ultimos_50_anteriores = historico_list[-50:]  # Inclui o número atual no final
         
         # LINHA 1: Validação APENAS números atrasados
-        numeros_sorteados_65 = set(ultimos_65_anteriores)
+        numeros_sorteados_50 = set(ultimos_50_anteriores)
         todos_numeros = set(range(0, 37))
-        numeros_atrasados = sorted(list(todos_numeros - numeros_sorteados_65))
+        numeros_atrasados = sorted(list(todos_numeros - numeros_sorteados_50))
         
         if numero in numeros_atrasados:
             st.session_state.resultados.append("1")  # GREEN
@@ -354,3 +354,4 @@ st.markdown("""
    - Se a porcentagem de "RED→GREEN" for alta, pode valer a pena apostar nos vizinhos
    - Se for baixa, talvez seja melhor apostar apenas nos ausentes
 """)
+
