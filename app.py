@@ -35,7 +35,7 @@ def obter_vizinhos_laterais(numero, quantidade=2):
     for i in range(1, quantidade + 1):
         setor.append(ordem_roleta[(pos + i) % total_numeros])
     
-    return sorted(setor))
+    return sorted(setor)
 
 def calcular_melhor_combinacao(ultimas_rodadas=30, num_numeros=4, vizinhos=2):
     """Encontra a melhor combinação de números que maximiza acertos nos últimos X resultados"""
@@ -131,7 +131,6 @@ def registrar_numero_setores(numero):
             st.session_state.resultados_ausentes.append("X")
         
         # Linha 2: Ausentes + 1 vizinho de cada lado
-        from collections import deque
         vizinhos_atrasados = set()
         for num in numeros_atrasados:
             if num in posicao_roleta:
@@ -140,7 +139,7 @@ def registrar_numero_setores(numero):
                 vizinhos_atrasados.add(ordem_roleta[(pos - 1) % total])
                 vizinhos_atrasados.add(ordem_roleta[(pos + 1) % total])
         
-        apostas_vizinhos = sorted(list(set(numeros_atrasados) | vizinhos_atradados))
+        apostas_vizinhos = sorted(list(set(numeros_atrasados) | vizinhos_atrasados))
         
         if numero in apostas_vizinhos:
             st.session_state.resultados_vizinhos.append("1")
@@ -161,7 +160,7 @@ with tab1:
     
     **Como funciona:**
     1. Analisa as últimas **30 rodadas**
-    2. Testa **todas as combinações** de 4 números
+    2. Testa **combinações** de 4 números
     3. Para cada número, considera o setor: número + **2 vizinhos de cada lado** (total 5 números por setor)
     4. Escolhe a combinação que **MAIS acerta** nos últimos 30 resultados
     5. Total de números apostados: até **20 números** (54% da roleta)
@@ -212,8 +211,9 @@ with tab1:
             # Mostra os 4 números escolhidos
             col1, col2, col3, col4 = st.columns(4)
             for idx, col in enumerate([col1, col2, col3, col4]):
-                col.metric(f"Número {idx+1}", melhor_combo[idx], 
-                          f"Vizinhos: 2 cada lado")
+                if idx < len(melhor_combo):
+                    col.metric(f"Número {idx+1}", melhor_combo[idx], 
+                              f"Vizinhos: 2 cada lado")
             
             st.markdown("### 📊 Detalhes da Combinação")
             
@@ -276,7 +276,7 @@ with tab1:
                 # Estatísticas
                 total_green = resultados.count("1")
                 total_red = resultados.count("X")
-                taxa_acerto = (total_green / len(resultados) * 100)
+                taxa_acerto = (total_green / len(resultados) * 100) if len(resultados) > 0 else 0
                 
                 col1, col2, col3 = st.columns(3)
                 col1.metric("GREEN", total_green)
@@ -326,19 +326,19 @@ with tab2:
         
         if resultados_ausentes:
             green_ausentes = resultados_ausentes.count("1")
-            taxa_ausentes = (green_ausentes / len(resultados_ausentes) * 100)
+            taxa_ausentes = (green_ausentes / len(resultados_ausentes) * 100) if len(resultados_ausentes) > 0 else 0
             col1.metric("Apenas Ausentes", f"{taxa_ausentes:.1f}%", 
                        f"GREEN: {green_ausentes}")
         
         if resultados_vizinhos:
             green_vizinhos = resultados_vizinhos.count("1")
-            taxa_vizinhos = (green_vizinhos / len(resultados_vizinhos) * 100)
+            taxa_vizinhos = (green_vizinhos / len(resultados_vizinhos) * 100) if len(resultados_vizinhos) > 0 else 0
             col2.metric("Ausentes + Vizinhos", f"{taxa_vizinhos:.1f}%", 
                        f"GREEN: {green_vizinhos}")
         
         if resultados_setores:
             green_setores = resultados_setores.count("1")
-            taxa_setores = (green_setores / len(resultados_setores) * 100)
+            taxa_setores = (green_setores / len(resultados_setores) * 100) if len(resultados_setores) > 0 else 0
             col3.metric("4 Números + 2 Vizinhos", f"{taxa_setores:.1f}%", 
                        f"GREEN: {green_setores}")
         
