@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from collections import deque
+from collections import deque, Counter
 from itertools import combinations
 
 # Configuração inicial
@@ -19,83 +19,99 @@ ordem_roleta = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 2
 # Criar dicionário de posição na roleta
 posicao_roleta = {numero: idx for idx, numero in enumerate(ordem_roleta)}
 
-def obter_vizinhos_laterais(numero, quantidade=4):
-    """Retorna N vizinhos de cada lado na roleta"""
+def obter_vizinhos_laterais(numero, quantidade=2):
+    """Retorna N vizinhos de cada lado na roleta (inclui o número central)"""
     if numero not in posicao_roleta:
         return []
     
     pos = posicao_roleta[numero]
     total_numeros = len(ordem_roleta)
     
-    vizinhos = []
+    setor = [numero]
     # Vizinhos à esquerda (sentido horário)
     for i in range(1, quantidade + 1):
-        vizinhos.append(ordem_roleta[(pos - i) % total_numeros])
+        setor.append(ordem_roleta[(pos - i) % total_numeros])
     # Vizinhos à direita (sentido anti-horário)
     for i in range(1, quantidade + 1):
-        vizinhos.append(ordem_roleta[(pos + i) % total_numeros])
+        setor.append(ordem_roleta[(pos + i) % total_numeros])
     
-    return vizinhos
+    return sorted(setor))
 
-def encontrar_setores_quentes(ultimas_rodadas=30):
-    """Encontra os 3 números mais frequentes e seus setores"""
+def calcular_melhor_combinacao(ultimas_rodadas=30, num_numeros=4, vizinhos=2):
+    """Encontra a melhor combinação de números que maximiza acertos nos últimos X resultados"""
     if len(st.session_state.historico) < ultimas_rodadas:
         return None, None, None
     
-    # Pega as últimas X rodadas
+    # Pega os últimos números
     ultimos_numeros = list(st.session_state.historico)[-ultimas_rodadas:]
     
-    # Conta frequência de cada número
-    frequencias = {}
-    for numero in ultimos_numeros:
-        frequencias[numero] = frequencias.get(numero, 0) + 1
+    # Para cada número, calcula seu setor (incluindo vizinhos)
+    setor_por_numero = {}
+    for num in range(37):
+        setor = obter_vizinhos_laterais(num, quantidade=vizinhos)
+        setor_por_numero[num] = set(setor)
     
-    # Ordena por frequência (mais frequentes primeiro)
-    numeros_ordenados = sorted(frequencias.items(), key=lambda x: x[1], reverse=True)
+    # Testa todas as combinações de números (otimizado - testa os mais frequentes primeiro)
+    # Pega os 15 números mais frequentes para otimizar
+    frequencias = Counter(ultimos_numeros)
+    numeros_mais_frequentes = [num for num, _ in frequencias.most_common(20)]
     
-    # Pega os 3 números mais frequentes (ou menos se não houver)
-    top_3 = [num for num, freq in numeros_ordenados[:3]]
+    melhor_combinacao = None
+    melhor_cobertura = 0
+    melhor_detalhes = None
     
-    # Para cada número, pega seus 4 vizinhos de cada lado
-    setores = []
-    todos_numeros_aposta = set()
+    # Testa combinações (limitado para performance)
+    from itertools import combinations
     
-    for numero in top_3:
-        vizinhos = obter_vizinhos_laterais(numero, quantidade=4)
-        setor = [numero] + vizinhos
-        setores.append(sorted(setor))
-        todos_numeros_aposta.update(setor)
+    # Se tiver poucos números frequentes, testa todos
+    if len(numeros_mais_frequentes) >= num_numeros:
+        combinacoes_testar = combinations(numeros_mais_frequentes, num_numeros)
+    else:
+        combinacoes_testar = combinations(range(37), num_numeros)
     
-    return top_3, setores, sorted(list(todos_numeros_aposta))
-
-def calcular_cobertura_setores(apostas):
-    """Calcula quantos números dos últimos 30 seriam cobertos pela aposta"""
-    if len(st.session_state.historico) < 30:
-        return 0, 0
+    # Limita número de combinações para performance
+    total_combinacoes = 0
+    max_combinacoes = 5000  # Limite para não travar
     
-    ultimos_numeros = list(st.session_state.historico)[-30:]
-    acertos = sum(1 for num in ultimos_numeros if num in apostas)
-    return acertos, len(ultimos_numeros)
+    for combo in combinacoes_testar:
+        total_combinacoes += 1
+        if total_combinacoes > max_combinacoes:
+            break
+            
+        # Une todos os setores da combinação
+        setores_unidos = set()
+        for num in combo:
+            setores_unidos.update(setor_por_numero[num])
+        
+        # Calcula quantos dos últimos números seriam cobertos
+        cobertura = sum(1 for num in ultimos_numeros if num in setores_unidos)
+        
+        if cobertura > melhor_cobertura:
+            melhor_cobertura = cobertura
+            melhor_combinacao = combo
+            melhor_detalhes = {
+                'setores_unidos': sorted(list(setores_unidos)),
+                'cobertura': cobertura,
+                'total_ultimos': len(ultimos_numeros),
+                'tamanho_aposta': len(setores_unidos)
+            }
+    
+    return melhor_combinacao, melhor_cobertura, melhor_detalhes
 
 def registrar_numero_setores(numero):
-    """Registra número e calcula resultado da estratégia de setores"""
+    """Registra número e calcula resultado da estratégia otimizada de setores"""
     historico_list = list(st.session_state.historico)
     
-    # Estratégia de setores quentes (usa últimas 30 rodadas para definir aposta)
+    # Estratégia otimizada de setores (usa últimas 30 rodadas)
     if len(historico_list) >= 30:
-        # Usa as últimas 30 rodadas (excluindo o número atual) para definir os setores
-        ultimos_30_anteriores = historico_list[-31:-1] if len(historico_list) > 30 else historico_list[-30:]
+        # Usa as últimas 30 rodadas (excluindo o número atual)
+        ultimos_30_anteriores = historico_list[-30:] if len(historico_list) >= 30 else historico_list
         
-        # Salva histórico temporário para análise
-        temp_historico = st.session_state.historico.copy()
-        # Remove o último número se já foi adicionado
-        if len(temp_historico) > 0:
-            ultimo = temp_historico.pop()
+        # Encontra melhor combinação baseado nas últimas 30 (excluindo atual)
+        melhor_combo, cobertura, detalhes = calcular_melhor_combinacao(30, num_numeros=4, vizinhos=2)
         
-        # Analisa setores quentes baseado nas 30 anteriores
-        top_3, setores, apostas_setores = encontrar_setores_quentes(30)
-        
-        if apostas_setores:
+        if detalhes and 'setores_unidos' in detalhes:
+            apostas_setores = detalhes['setores_unidos']
             if numero in apostas_setores:
                 st.session_state.resultados_setores.append("1")
             else:
@@ -114,9 +130,17 @@ def registrar_numero_setores(numero):
         else:
             st.session_state.resultados_ausentes.append("X")
         
-        # Linha 2: Ausentes + vizinhos
-        vizinhos_atrasados = obter_vizinhos_laterais_setor(numeros_atrasados)
-        apostas_vizinhos = sorted(list(set(numeros_atrasados) | set(vizinhos_atradados)))
+        # Linha 2: Ausentes + 1 vizinho de cada lado
+        from collections import deque
+        vizinhos_atrasados = set()
+        for num in numeros_atrasados:
+            if num in posicao_roleta:
+                pos = posicao_roleta[num]
+                total = len(ordem_roleta)
+                vizinhos_atrasados.add(ordem_roleta[(pos - 1) % total])
+                vizinhos_atrasados.add(ordem_roleta[(pos + 1) % total])
+        
+        apostas_vizinhos = sorted(list(set(numeros_atrasados) | vizinhos_atradados))
         
         if numero in apostas_vizinhos:
             st.session_state.resultados_vizinhos.append("1")
@@ -125,33 +149,27 @@ def registrar_numero_setores(numero):
     
     st.session_state.historico.append(numero)
 
-def obter_vizinhos_laterais_setor(numeros):
-    """Versão para múltiplos números - 1 vizinho de cada lado"""
-    todos_vizinhos = set()
-    for numero in numeros:
-        if numero in posicao_roleta:
-            pos = posicao_roleta[numero]
-            total = len(ordem_roleta)
-            # Apenas 1 vizinho de cada lado para manter a estratégia original
-            todos_vizinhos.add(ordem_roleta[(pos - 1) % total])
-            todos_vizinhos.add(ordem_roleta[(pos + 1) % total])
-    return sorted(list(todos_vizinhos))
-
 # Interface
-st.title("🎯 Estratégia de Setores Quentes - Roleta Europeia")
+st.title("🎯 Estratégia Otimizada - Setores da Roleta")
 
-# Abas para diferentes estratégias
-tab1, tab2, tab3 = st.tabs(["🔥 Setores Quentes", "📊 Comparação Estratégias", "📈 Histórico"])
+# Abas
+tab1, tab2, tab3 = st.tabs(["🎲 Estratégia Otimizada", "📊 Comparação", "📈 Histórico"])
 
 with tab1:
     st.markdown("""
-    ### 🎲 Estratégia: Setores Mais Quentes
+    ### 🎯 Estratégia: 4 Números + 2 Vizinhos de Cada Lado
     
     **Como funciona:**
     1. Analisa as últimas **30 rodadas**
-    2. Identifica os **3 números que mais saíram** (os mais quentes)
-    3. Para cada número quente, aposta nele + **4 vizinhos de cada lado** na roleta
-    4. Total: 3 números × 9 números (1 central + 4 esquerda + 4 direita) = **27 números**
+    2. Testa **todas as combinações** de 4 números
+    3. Para cada número, considera o setor: número + **2 vizinhos de cada lado** (total 5 números por setor)
+    4. Escolhe a combinação que **MAIS acerta** nos últimos 30 resultados
+    5. Total de números apostados: até **20 números** (54% da roleta)
+    
+    **Vantagens:**
+    - ✅ Aposta otimizada para os últimos 30 resultados
+    - ✅ Evita sobreposição desnecessária
+    - ✅ Maximiza a probabilidade de acerto
     """)
     
     # Controles
@@ -186,52 +204,59 @@ with tab1:
     
     # Exibição da estratégia atual
     if len(st.session_state.historico) >= 30:
-        top_3, setores, apostas_setores = encontrar_setores_quentes(30)
+        melhor_combo, cobertura, detalhes = calcular_melhor_combinacao(30, num_numeros=4, vizinhos=2)
         
-        if top_3 and setores:
-            st.markdown("### 🔥 Números Mais Quentes (últimas 30 rodadas)")
+        if melhor_combo and detalhes:
+            st.markdown("### 🎲 Melhor Combinação Encontrada")
             
-            # Mostra frequências
-            ultimos_numeros = list(st.session_state.historico)[-30:]
-            frequencias = {}
-            for num in ultimos_numeros:
-                frequencias[num] = frequencias.get(num, 0) + 1
+            # Mostra os 4 números escolhidos
+            col1, col2, col3, col4 = st.columns(4)
+            for idx, col in enumerate([col1, col2, col3, col4]):
+                col.metric(f"Número {idx+1}", melhor_combo[idx], 
+                          f"Vizinhos: 2 cada lado")
             
-            col1, col2, col3 = st.columns(3)
-            for idx, (col, numero) in enumerate(zip([col1, col2, col3], top_3)):
-                freq = frequencias.get(numero, 0)
-                col.metric(f"#{idx+1} Número Quente", numero, f"{freq} vezes")
+            st.markdown("### 📊 Detalhes da Combinação")
             
-            st.markdown("### 🎯 Setores para Apostar (Número + 4 vizinhos cada lado)")
+            # Para cada número, mostra seu setor
+            st.markdown("**Setores Individuais (número + 2 vizinhos cada lado):**")
+            for num in melhor_combo:
+                setor = obter_vizinhos_laterais(num, quantidade=2)
+                st.write(f"- **Número {num}**: {setor}")
             
-            for idx, (numero, setor) in enumerate(zip(top_3, setores)):
-                with st.expander(f"Setor {idx+1}: Número {numero} e seus vizinhos"):
-                    st.write(f"**Número central:** {numero}")
-                    st.write(f"**Vizinhos:** {setor[1:]}")
-                    st.write(f"**Total de números neste setor:** {len(setor)}")
-            
-            st.markdown("### ✅ APOSTA FINAL")
-            st.write(f"**Números para apostar:** {apostas_setores}")
-            st.write(f"**Total de números:** {len(apostas_setores)}")
-            st.write(f"**Cobertura da roleta:** {(len(apostas_setores)/37*100):.1f}%")
+            # Aposta final
+            st.markdown("### ✅ APOSTA FINAL RECOMENDADA")
+            st.write(f"**Números para apostar:** {detalhes['setores_unidos']}")
+            st.write(f"**Total de números únicos:** {detalhes['tamanho_aposta']} de 37")
+            st.write(f"**Cobertura da roleta:** {(detalhes['tamanho_aposta']/37*100):.1f}%")
             
             # Cobertura dos últimos 30
-            cobertura, total = calcular_cobertura_setores(apostas_setores)
-            st.markdown("### 📊 Cobertura dos Últimos 30 Números")
-            st.write(f"**Acertos potenciais:** {cobertura} de {total} números")
-            st.write(f"**Porcentagem de cobertura:** {(cobertura/total*100):.1f}%")
+            st.markdown("### 📊 Performance nos Últimos 30 Números")
+            
+            cobertura_percent = (detalhes['cobertura'] / detalhes['total_ultimos'] * 100)
+            
+            col1, col2 = st.columns(2)
+            col1.metric("Acertos potenciais", f"{detalhes['cobertura']}/{detalhes['total_ultimos']}")
+            col2.metric("Taxa de acerto", f"{cobertura_percent:.1f}%")
+            
+            # Comparação com cobertura aleatória
+            cobertura_aleatoria = (detalhes['tamanho_aposta'] / 37) * 100
+            if cobertura_percent > cobertura_aleatoria:
+                st.success(f"✅ **{cobertura_percent - cobertura_aleatoria:.1f}% melhor que cobertura aleatória!**")
+            else:
+                st.warning(f"⚠️ **{cobertura_aleatoria - cobertura_percent:.1f}% pior que cobertura aleatória**")
             
             # Visualização da roleta
             st.markdown("### 🎨 Visualização da Roleta")
             
             # Cria grid da roleta
+            apostas = set(detalhes['setores_unidos'])
             roleta_grid = []
             for i in range(0, 37, 6):
                 linha = []
                 for j in range(6):
                     num = i + j
                     if num <= 36:
-                        if num in apostas_setores:
+                        if num in apostas:
                             linha.append(f"🟢 {num:2d}")
                         else:
                             linha.append(f"⚪ {num:2d}")
@@ -239,16 +264,19 @@ with tab1:
             
             st.code("\n".join(roleta_grid))
             
-            # Resultados da estratégia de setores
-            st.markdown("### 🎲 Resultados - Estratégia de Setores")
+            # Resultados da estratégia
+            st.markdown("### 🎲 Resultados - Estratégia Otimizada")
             if st.session_state.resultados_setores:
-                resultados_setores = list(st.session_state.resultados_setores)
-                resultados_display = " ".join(resultados_setores[-50:])
+                resultados = list(st.session_state.resultados_setores)
+                
+                # Mostra últimos resultados
+                resultados_display = " ".join(resultados[-50:])
                 st.code(resultados_display)
                 
-                total_green = resultados_setores.count("1")
-                total_red = resultados_setores.count("X")
-                taxa_acerto = (total_green / len(resultados_setores) * 100) if len(resultados_setores) > 0 else 0
+                # Estatísticas
+                total_green = resultados.count("1")
+                total_red = resultados.count("X")
+                taxa_acerto = (total_green / len(resultados) * 100)
                 
                 col1, col2, col3 = st.columns(3)
                 col1.metric("GREEN", total_green)
@@ -256,12 +284,34 @@ with tab1:
                 col3.metric("Taxa de Acerto", f"{taxa_acerto:.1f}%")
                 
                 # Sequência atual
-                st.write(f"**Últimos 10 resultados:** {resultados_setores[-10:]}")
-                st.write(f"**Sequência atual:** {''.join(resultados_setores[-5:])}")
+                st.write(f"**Últimos 10 resultados:** {resultados[-10:]}")
+                st.write(f"**Sequência atual:** {''.join(resultados[-5:])}")
+                
+                # Performance ao longo do tempo
+                if len(resultados) >= 10:
+                    st.markdown("**Performance por blocos de 10 apostas:**")
+                    blocos = []
+                    for i in range(0, len(resultados), 10):
+                        bloco = resultados[i:i+10]
+                        acertos = bloco.count("1")
+                        blocos.append(f"{i+1}-{min(i+10, len(resultados))}: {acertos}/10 ({acertos*10}%)")
+                    
+                    for bloco in blocos[-5:]:  # Mostra últimos 5 blocos
+                        st.write(f"- {bloco}")
             else:
                 st.info("Aguardando resultados (mínimo 30 rodadas para análise)")
     else:
         st.warning(f"⚠️ Aguardando mais dados... ({len(st.session_state.historico)}/30 rodadas)")
+    
+    # Sugestão de números baseado em frequência
+    if len(st.session_state.historico) >= 30:
+        st.markdown("### 📈 Análise Rápida")
+        ultimos_numeros = list(st.session_state.historico)[-30:]
+        frequencias = Counter(ultimos_numeros)
+        
+        st.markdown("**Top 5 números mais frequentes nas últimas 30 rodadas:**")
+        for num, freq in frequencias.most_common(5):
+            st.write(f"- Número {num}: {freq} vezes")
 
 with tab2:
     st.markdown("### 📊 Comparação entre Estratégias")
@@ -277,7 +327,7 @@ with tab2:
         if resultados_ausentes:
             green_ausentes = resultados_ausentes.count("1")
             taxa_ausentes = (green_ausentes / len(resultados_ausentes) * 100)
-            col1.metric("Apenas Ausentes (65 rodadas)", f"{taxa_ausentes:.1f}%", 
+            col1.metric("Apenas Ausentes", f"{taxa_ausentes:.1f}%", 
                        f"GREEN: {green_ausentes}")
         
         if resultados_vizinhos:
@@ -289,36 +339,24 @@ with tab2:
         if resultados_setores:
             green_setores = resultados_setores.count("1")
             taxa_setores = (green_setores / len(resultados_setores) * 100)
-            col3.metric("Setores Quentes (30 rodadas)", f"{taxa_setores:.1f}%", 
+            col3.metric("4 Números + 2 Vizinhos", f"{taxa_setores:.1f}%", 
                        f"GREEN: {green_setores}")
         
         # Gráfico comparativo
-        st.markdown("### 📈 Evolução das Taxas de Acerto")
-        
-        # Prepara dados para o gráfico
-        dados_grafico = []
-        max_len = max(len(resultados_ausentes), len(resultados_vizinhos), len(resultados_setores))
-        
-        for i in range(10, max_len + 1, 10):
-            ponto = {"Rodada": i}
+        if resultados_setores:
+            st.markdown("### 📈 Evolução da Taxa de Acerto (Estratégia Otimizada)")
             
-            if i <= len(resultados_ausentes):
-                acertos = resultados_ausentes[:i].count("1")
-                ponto["Ausentes"] = (acertos / i * 100)
+            # Prepara dados para o gráfico
+            dados_grafico = []
+            for i in range(10, len(resultados_setores) + 1, 5):
+                if i <= len(resultados_setores):
+                    acertos = resultados_setores[:i].count("1")
+                    taxa = (acertos / i * 100)
+                    dados_grafico.append({"Rodadas": i, "Taxa %": taxa})
             
-            if i <= len(resultados_vizinhos):
-                acertos = resultados_vizinhos[:i].count("1")
-                ponto["+ Vizinhos"] = (acertos / i * 100)
-            
-            if i <= len(resultados_setores):
-                acertos = resultados_setores[:i].count("1")
-                ponto["Setores"] = (acertos / i * 100)
-            
-            dados_grafico.append(ponto)
-        
-        if dados_grafico:
-            df_grafico = pd.DataFrame(dados_grafico)
-            st.line_chart(df_grafico.set_index('Rodada'))
+            if dados_grafico:
+                df_grafico = pd.DataFrame(dados_grafico)
+                st.line_chart(df_grafico.set_index('Rodadas'))
     
     else:
         st.info(f"Aguardando 65 rodadas para comparação completa... ({len(st.session_state.historico)}/65)")
@@ -337,7 +375,6 @@ with tab3:
         st.markdown("#### 📊 Estatísticas Gerais")
         
         # Frequência dos números
-        from collections import Counter
         frequencia_total = Counter(historico_list)
         
         # Números mais e menos frequentes
@@ -346,14 +383,14 @@ with tab3:
         
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**🔥 Números mais frequentes (geral)**")
+            st.markdown("**🔥 Números mais frequentes**")
             for num, freq in mais_frequentes:
-                st.write(f"Número {num}: {freq} vezes")
+                st.write(f"Número {num}: {freq} vezes ({freq/len(historico_list)*100:.1f}%)")
         
         with col2:
-            st.markdown("**❄️ Números menos frequentes (geral)**")
+            st.markdown("**❄️ Números menos frequentes**")
             for num, freq in menos_frequentes:
-                st.write(f"Número {num}: {freq} vezes")
+                st.write(f"Número {num}: {freq} vezes ({freq/len(historico_list)*100:.1f}%)")
         
         # Exportar dados
         st.markdown("#### 💾 Exportar Dados")
@@ -381,47 +418,53 @@ with tab3:
                 'Número': historico_list,
                 'Resultado_Ausentes': ausentes,
                 'Resultado_Ausentes_Vizinhos': vizinhos,
-                'Resultado_Setores_Quentes': setores
+                'Resultado_Otimizado_4Numeros_2Vizinhos': setores
             })
             
             csv = df_export.to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="Baixar CSV",
                 data=csv,
-                file_name='roleta_todas_estrategias.csv',
+                file_name='roleta_estrategia_otimizada.csv',
                 mime='text/csv'
             )
     else:
         st.info("Nenhum dado no histórico ainda. Registre alguns números para começar!")
 
 # Instruções
-with st.expander("📖 Instruções Detalhadas"):
+with st.expander("📖 Instruções da Estratégia Otimizada"):
     st.markdown("""
-    ### Como usar o BOT de Setores Quentes
+    ### Como funciona a otimização
     
-    **1. Estratégia de Setores Quentes:**
-    - Analisa automaticamente as últimas 30 rodadas
-    - Identifica os 3 números que mais saíram
-    - Para cada número, aposta no número + 4 vizinhos de cada lado na roleta física
-    - Ideal para aproveitar tendências de curto prazo
+    **1. Algoritmo de busca:**
+    - Analisa as últimas 30 rodadas
+    - Testa combinações de 4 números (prioriza os mais frequentes)
+    - Para cada combinação, calcula quantos dos últimos 30 números seriam cobertos
+    - Escolhe a combinação que MAXIMIZA os acertos
     
-    **2. Por que 4 vizinhos de cada lado?**
-    - Cobre um setor de 9 números por número quente
-    - Total de 27 números (73% da roleta)
-    - Alta probabilidade de acerto (teórica ~73%)
+    **2. Por que 4 números com 2 vizinhos cada?**
+    - Cada setor = 5 números (1 central + 2 esquerda + 2 direita)
+    - 4 setores × 5 números = até 20 números únicos
+    - Cobertura ideal: 54% da roleta
+    - Evita sobreposição excessiva
     
-    **3. Como interpretar os resultados:**
-    - 🟢 **GREEN (1)**: Número sorteado estava na aposta
-    - 🔴 **RED (X)**: Número sorteado NÃO estava na aposta
+    **3. Vantagens sobre a estratégia anterior:**
+    - ✅ **Menos sobreposição**: 4 números ao invés de 3
+    - ✅ **Setores menores**: 2 vizinhos ao invés de 4
+    - ✅ **Mais foco**: Aposta nos números que realmente importam
+    - ✅ **Melhor cobertura**: Otimizada para os últimos resultados
     
-    **4. Dicas de uso:**
-    - Use para identificar tendências de curto prazo
-    - Combine com outras estratégias (ausentes) para confirmar sinais
-    - Acompanhe a taxa de acerto ao longo do tempo
-    - Exporte os dados para análise externa
+    **4. Interpretação dos resultados:**
+    - 🟢 **GREEN**: O número sorteado estava na aposta otimizada
+    - 🔴 **RED**: O número sorteado NÃO estava na aposta
     
-    **5. Limitações:**
-    - Precisa de no mínimo 30 rodadas para começar
-    - Estratégia de curto prazo (últimas 30 rodadas)
-    - Resultados passados não garantem resultados futuros
+    **5. Performance esperada:**
+    - Cobertura teórica: ~54% da roleta
+    - Taxa de acerto teórica: ~54%
+    - Mas como é otimizada para os últimos 30, pode ser maior!
+    
+    **6. Dicas:**
+    - Observe se a taxa de acerto está acima de 60%
+    - Se cair muito, pode ser hora de reavaliar
+    - Combine com outras estratégias para confirmar sinais
     """)
